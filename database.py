@@ -15,6 +15,29 @@ logger = logging.getLogger(__name__)
 # Пул подключений PostgreSQL (если задан DATABASE_URL)
 _pg_pool = None
 
+# Базовый список целевых регионов РФ по умолчанию для админки и парсера
+DEFAULT_ADMIN_REGIONS = [
+    "Москва и МО",
+    "Санкт-Петербург и ЛО",
+    "Кемеровская область",
+    "Новосибирская область",
+    "Свердловская область",
+    "Краснодарский край",
+    "Татарстан",
+    "Красноярский край",
+    "Тюменская область",
+    "Челябинская область",
+    "Самарская область",
+    "Нижегородская область",
+    "Ростовская область",
+    "Башкортостан",
+    "Пермский край",
+    "Иркутская область",
+    "Омская область",
+    "Воронежская область",
+    "Алтайский край",
+]
+
 
 async def get_pg_pool():
     """Возвращает или создает пул соединений PostgreSQL."""
@@ -111,8 +134,27 @@ async def init_db() -> None:
                 CREATE INDEX IF NOT EXISTS idx_contractors_has_phone ON contractors(has_phone);
                 CREATE INDEX IF NOT EXISTS idx_contractors_has_website ON contractors(has_website);
                 CREATE INDEX IF NOT EXISTS idx_contractors_created_at ON contractors(created_at);
+
+                CREATE TABLE IF NOT EXISTS admin_regions (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL UNIQUE,
+                    is_selected SMALLINT NOT NULL DEFAULT 1,
+                    is_custom SMALLINT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_admin_regions_selected ON admin_regions(is_selected);
                 """
             )
+
+            # Проверяем и заполняем дефолтные регионы, если таблица пуста
+            reg_count = await conn.fetchval("SELECT COUNT(*) FROM admin_regions")
+            if reg_count == 0:
+                for reg in DEFAULT_ADMIN_REGIONS:
+                    await conn.execute(
+                        "INSERT INTO admin_regions (name, is_selected, is_custom) VALUES ($1, 1, 0) ON CONFLICT (name) DO NOTHING",
+                        reg,
+                    )
+                logger.info("Инициализировано %d базовых регионов РФ в PostgreSQL.", len(DEFAULT_ADMIN_REGIONS))
         logger.info("Таблицы и индексы PostgreSQL успешно проверены.")
     else:
         # ==================== SQLITE ====================
@@ -201,6 +243,34 @@ async def init_db() -> None:
             await db.execute("CREATE INDEX IF NOT EXISTS idx_contractors_has_phone ON contractors(has_phone)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_contractors_has_website ON contractors(has_website)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_contractors_created_at ON contractors(created_at)")
+
+            # Таблица регионов для админки и парсера
+            await db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS admin_regions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    is_selected INTEGER NOT NULL DEFAULT 1,
+                    is_custom INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_admin_regions_selected ON admin_regions(is_selected)")
+
+            # Заполняем дефолтные регионы, если таблица пуста
+            async with db.execute("SELECT COUNT(*) FROM admin_regions") as cur:
+                row = await cur.fetchone()
+                reg_count = row[0] if row else 0
+
+            if reg_count == 0:
+                for reg in DEFAULT_ADMIN_REGIONS:
+                    await db.execute(
+                        "INSERT OR IGNORE INTO admin_regions (name, is_selected, is_custom) VALUES (?, 1, 0)",
+                        (reg,),
+                    )
+                logger.info("Инициализировано %d базовых регионов РФ в SQLite.", len(DEFAULT_ADMIN_REGIONS))
+
             await db.commit()
         logger.info("Таблицы и индексы SQLite успешно проверены.")
 
@@ -578,3 +648,128 @@ async def get_stats() -> dict[str, Any]:
                 "sources": sources,
                 "categories": categories_count,
             }
+
+
+# ==================== УПРАВЛЕНИЕ РЕГИОНАМИ ДЛЯ ПАРСИНГА ====================
+
+async def get_admin_regions() -> list[dict[str, Any]]:
+    """Возвращает список всех регионов с их статусом выбора."""
+    query = "SELECT id, name, is_selected, is_custom FROM admin_regions ORDER BY is_custom ASC, id ASC"
+    if config.DATABASE_URL:
+        pool = await get_pg_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(query)
+            return [
+                {
+                    "id": r["id"],
+                    "name": r["name"],
+                    "is_selected": bool(r["is_selected"]),
+                    "is_custom": bool(r["is_custom"]),
+                }
+                for r in rows
+            ]
+    else:
+        async with get_sqlite_connection() as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(query) as cur:
+                rows = await cur.fetchall()
+                return [
+                    {
+                        "id": r["id"],
+                        "name": r["name"],
+                        "is_selected": bool(r["is_selected"]),
+                        "is_custom": bool(r["is_custom"]),
+                    }
+                    for r in rows
+                ]
+
+
+async def toggle_admin_region(region_id: int) -> bool:
+    """Переключает статус выбора региона (0 <-> 1). Возвращает новый статус."""
+    if config.DATABASE_URL:
+        pool = await get_pg_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT is_selected FROM admin_regions WHERE id = $1", region_id)
+            if not row:
+                return False
+            new_val = 0 if row["is_selected"] else 1
+            await conn.execute("UPDATE admin_regions SET is_selected = $1 WHERE id = $2", new_val, region_id)
+            return bool(new_val)
+    else:
+        async with get_sqlite_connection() as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT is_selected FROM admin_regions WHERE id = ?", (region_id,)) as cur:
+                row = await cur.fetchone()
+                if not row:
+                    return False
+                new_val = 0 if row["is_selected"] else 1
+            await db.execute("UPDATE admin_regions SET is_selected = ? WHERE id = ?", (new_val, region_id))
+            await db.commit()
+            return bool(new_val)
+
+
+async def select_all_admin_regions(select_all: bool = True) -> None:
+    """Выбирает все регионы (1) или сбрасывает все (0)."""
+    val = 1 if select_all else 0
+    if config.DATABASE_URL:
+        pool = await get_pg_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("UPDATE admin_regions SET is_selected = $1", val)
+    else:
+        async with get_sqlite_connection() as db:
+            await db.execute("UPDATE admin_regions SET is_selected = ?", (val,))
+            await db.commit()
+
+
+async def add_custom_admin_regions(names: list[str]) -> list[str]:
+    """Добавляет пользовательские регионы, сразу помечая их выбранными."""
+    added = []
+    if config.DATABASE_URL:
+        pool = await get_pg_pool()
+        async with pool.acquire() as conn:
+            for raw_name in names:
+                name = raw_name.strip()
+                if len(name) < 2:
+                    continue
+                await conn.execute(
+                    """
+                    INSERT INTO admin_regions (name, is_selected, is_custom)
+                    VALUES ($1, 1, 1)
+                    ON CONFLICT (name) DO UPDATE SET is_selected = 1
+                    """,
+                    name,
+                )
+                added.append(name)
+    else:
+        async with get_sqlite_connection() as db:
+            for raw_name in names:
+                name = raw_name.strip()
+                if len(name) < 2:
+                    continue
+                await db.execute(
+                    """
+                    INSERT INTO admin_regions (name, is_selected, is_custom)
+                    VALUES (?, 1, 1)
+                    ON CONFLICT(name) DO UPDATE SET is_selected = 1
+                    """,
+                    (name,),
+                )
+                added.append(name)
+            await db.commit()
+    return added
+
+
+async def get_selected_region_names() -> list[str]:
+    """Возвращает список названий всех отмеченных администратором регионов."""
+    query = "SELECT name FROM admin_regions WHERE is_selected = 1 ORDER BY is_custom ASC, id ASC"
+    if config.DATABASE_URL:
+        pool = await get_pg_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(query)
+            return [r["name"] for r in rows]
+    else:
+        async with get_sqlite_connection() as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(query) as cur:
+                rows = await cur.fetchall()
+                return [r["name"] for r in rows]
