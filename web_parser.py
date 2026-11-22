@@ -1,4 +1,4 @@
-"""Асинхронный веб-парсер B2B-подрядчиков по благоустройству с поддержкой API и резервных каталогов."""
+"""Асинхронный веб-парсер B2B-подрядчиков по благоустройству с надёжной диагностикой и обходом блокировок."""
 
 import asyncio
 from datetime import datetime
@@ -20,11 +20,11 @@ logger = logging.getLogger(__name__)
 
 # Ротация User-Agent заголовков
 USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.4; rv:124.0) Gecko/20100101 Firefox/124.0",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14.4; rv:125.0) Gecko/20100101 Firefox/125.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
 ]
 
@@ -97,8 +97,8 @@ CITIES_MAP = {
     "волгоград": "Волгоград",
 }
 
-# Резервный реестр проверенных компаний по благоустройству, детским площадкам, заборам и МАФам
-# (гарантирует реальный сбор на облачных дата-центрах Render даже при блокировке бесплатных поисковиков)
+# Расширенный резервный реестр реальных компаний и производителей
+# (гарантирует сбор и обогащение контактов даже при блокировке поисковиков на Render)
 FALLBACK_CATALOG_COMPANIES = [
     {
         "url": "https://stereowood.com",
@@ -170,15 +170,61 @@ FALLBACK_CATALOG_COMPANIES = [
         "category_tags": "Детские площадки, Дворы и ЖК, МАФы",
         "snippet": "Производство и монтаж детских игровых и спортивных комплексов по Сибирскому региону",
     },
+    {
+        "url": "https://aveld.ru",
+        "title": "Авельд — детские площадки, скамейки и урны",
+        "region": "Санкт-Петербург",
+        "category_tags": "Детские площадки, МАФы, Дворы и ЖК, Парки и скверы",
+        "snippet": "Поставки игровых городков, качалок, каруселей и малых архитектурных форм для благоустройства",
+    },
+    {
+        "url": "https://toruda.ru",
+        "title": "Торуда — детское и спортивное оборудование для благоустройства",
+        "region": "Москва и МО",
+        "category_tags": "Детские площадки, Заборы и ограждения, МАФы, Парки и скверы",
+        "snippet": "Оптовые поставки детских площадок, уличных тренажеров, спортивных ограждений и парковой мебели",
+    },
+    {
+        "url": "https://parkplay-spb.ru",
+        "title": "ParkPlay — благоустройство детских и спортивных зон",
+        "region": "Санкт-Петербург",
+        "category_tags": "Детские площадки, Парки и скверы, Дворы и ЖК",
+        "snippet": "Монтаж игрового оборудования, резиновых покрытий и парковых МАФов под ключ",
+    },
+    {
+        "url": "https://k-gorod.ru",
+        "title": "Красивый Город — детские игровые площадки и заборы",
+        "region": "Санкт-Петербург",
+        "category_tags": "Детские площадки, Заборы и ограждения, Детсады и школы",
+        "snippet": "Производство игровых комплексов и металлических ограждений для детских садов, школ и дворов",
+    },
+    {
+        "url": "https://stroytrans-mos.ru",
+        "title": "СтройТранс — благоустройство территорий и парков",
+        "region": "Москва и МО",
+        "category_tags": "Парки и скверы, Детские площадки, Дворы и ЖК",
+        "snippet": "Комплексные работы по озеленению, установке детских площадок и обустройству общественных пространств",
+    },
 ]
 
 
 def get_random_headers() -> dict[str, str]:
-    """Генерирует заголовки с ротацией User-Agent."""
+    """Генерирует заголовки с ротацией User-Agent и защитой от детекта ботов."""
+    ua = random.choice(USER_AGENTS)
     return {
-        "User-Agent": random.choice(USER_AGENTS),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "User-Agent": ua,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Accept-Encoding": "gzip, deflate",
+        "Referer": "https://duckduckgo.com/",
+        "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
         "Connection": "keep-alive",
         "DNT": "1",
     }
@@ -248,7 +294,7 @@ def clean_company_name(raw_title: str) -> str:
 
 
 class WebCollector:
-    """Асинхронный сборщик подрядчиков по благоустройству с расширенной диагностикой."""
+    """Асинхронный сборщик подрядчиков по благоустройству с надёжной диагностикой."""
 
     def __init__(self) -> None:
         self.is_running = False
@@ -260,10 +306,12 @@ class WebCollector:
         """Загружает страницу и возвращает (HTML, финальный URL, статус код)."""
         try:
             headers = get_random_headers()
+            # Таймаут увеличен до 20 секунд для медленных сайтов
+            timeout = aiohttp.ClientTimeout(total=20, connect=10, sock_read=15)
             async with session.get(
                 url,
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=12),
+                timeout=timeout,
                 allow_redirects=True,
                 ssl=False,
             ) as resp:
@@ -275,7 +323,7 @@ class WebCollector:
                         return html, str(resp.url), status
                 return None, str(resp.url), status
         except Exception as e:
-            logger.debug("Сбой соединения с %s: %s", url, e)
+            logger.debug("Сбой соединения с %s [%s]: %s", url, type(e).__name__, e)
             return None, None, 0
 
     async def search_via_serper(
@@ -295,8 +343,9 @@ class WebCollector:
 
         try:
             logger.info("Поиск через Serper.dev API: '%s'", query)
+            timeout = aiohttp.ClientTimeout(total=20, connect=10)
             async with session.post(
-                url, headers=headers, json=payload, timeout=aiohttp.ClientTimeout(total=15)
+                url, headers=headers, json=payload, timeout=timeout, ssl=False
             ) as resp:
                 logger.info("Serper.dev API статус: %d для запроса '%s'", resp.status, query)
                 if resp.status == 200:
@@ -317,7 +366,7 @@ class WebCollector:
                     text = await resp.text()
                     logger.warning("Serper.dev API ошибка %d: %s", resp.status, text[:200])
         except Exception as e:
-            logger.warning("Исключение при вызове Serper.dev API: %s", e)
+            logger.warning("Исключение при вызове Serper.dev API [%s]: %s", type(e).__name__, e)
 
         return results
 
@@ -325,18 +374,19 @@ class WebCollector:
         self, session: aiohttp.ClientSession, query: str
     ) -> tuple[list[dict[str, str]], int, str]:
         """
-        Поиск через DuckDuckGo с отправкой POST запроса.
-        Возвращает (список_ссылок, http_статус, пояснение).
+        Поиск через DuckDuckGo с POST-запросом и детальным логированием причин сбоя.
+        Возвращает (список_ссылок, http_статус, пояснение_ошибки).
         """
         results: list[dict[str, str]] = []
         headers = get_random_headers()
         url = "https://html.duckduckgo.com/html/"
         data = {"q": query}
+        timeout = aiohttp.ClientTimeout(total=20, connect=10, sock_read=15)
 
         try:
             logger.info("Поиск через DuckDuckGo POST: '%s'", query)
             async with session.post(
-                url, data=data, headers=headers, timeout=aiohttp.ClientTimeout(total=12)
+                url, data=data, headers=headers, timeout=timeout, ssl=False
             ) as resp:
                 status = resp.status
                 logger.info("DuckDuckGo вернул HTTP %d для запроса '%s'", status, query)
@@ -376,20 +426,34 @@ class WebCollector:
                             "snippet": snippet,
                         })
 
-                    logger.info("DuckDuckGo успешно извлек %d релевантных ссылок", len(results))
+                    logger.info("DuckDuckGo успешно извлек %d релевантных ссылок для запроса '%s'", len(results), query)
                     return results, status, "OK"
                 elif status in (403, 202):
                     msg = f"HTTP {status}: Блокировка дата-центра / бот-контроль DuckDuckGo"
-                    logger.warning(msg)
+                    logger.warning("DuckDuckGo ограничил доступ: %s (запрос: '%s')", msg, query)
                     return results, status, msg
                 else:
                     msg = f"HTTP {status}"
-                    logger.warning("DuckDuckGo вернул непредвиденный статус: %s", msg)
+                    logger.warning("DuckDuckGo вернул статус %s для запроса '%s'", msg, query)
                     return results, status, msg
 
+        except asyncio.TimeoutError as e:
+            msg = f"TimeoutError: Превышено время ожидания ответа ({timeout.total} сек.)"
+            logger.warning("Таймаут DuckDuckGo [%s]: %s для запроса '%s'", type(e).__name__, msg, query)
+            return results, 0, msg
+        except aiohttp.ClientConnectorError as e:
+            msg = f"ClientConnectorError: Ошибка подключения к серверу ({e})"
+            logger.warning("Сбой соединения с DuckDuckGo [%s]: %s для запроса '%s'", type(e).__name__, e, query)
+            return results, 0, msg
+        except aiohttp.ClientResponseError as e:
+            msg = f"ClientResponseError: HTTP {e.status} {e.message}"
+            logger.warning("Ответ с ошибкой от DuckDuckGo [%s]: статус %s, сообщение: %s", type(e).__name__, e.status, e.message)
+            return results, e.status, msg
         except Exception as e:
-            logger.warning("Ошибка соединения с DuckDuckGo: %s", e)
-            return results, 0, str(e)
+            err_name = type(e).__name__
+            err_msg = str(e) or repr(e)
+            logger.warning("Непредвиденная ошибка соединения с DuckDuckGo [%s]: %s (запрос: '%s')", err_name, err_msg, query)
+            return results, 0, f"{err_name}: {err_msg}"
 
     async def scrape_target_site(
         self, session: aiohttp.ClientSession, site_info: dict[str, str], query_region: str
@@ -491,7 +555,7 @@ class WebCollector:
         progress_callback: Any = None,
     ) -> dict[str, Any]:
         """
-        Запуск цикла сбора данных с детальной диагностикой и отчетом.
+        Запуск цикла сбора данных с надёжным обходом сбоев и детальной диагностикой.
         """
         if self.is_running:
             return {"status": "already_running", "added": 0, "updated": 0}
@@ -504,15 +568,19 @@ class WebCollector:
         updated_count = 0
         search_links_found = 0
         queries_executed = 0
+        consecutive_search_failures = 0
         processed_domains = set()
         warnings: list[str] = []
 
         logger.info("=== Запуск веб-парсера B2B подрядчиков ===")
-        search_mode = "Serper.dev API" if config.SEARCH_API_KEY else "DuckDuckGo HTML + Резервные каталоги"
+        search_mode = "Serper.dev API" if config.SEARCH_API_KEY else "DuckDuckGo POST + Резервные каталоги"
         logger.info("Режим поиска: %s", search_mode)
 
+        # Коннектор с отключенной проверкой SSL для надёжности в любых облачных контейнерах
+        connector = aiohttp.TCPConnector(ssl=False)
+
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(connector=connector) as session:
                 # 1. Поисковые запросы
                 queries_to_run = []
                 for query in config.SEARCH_QUERIES[:4]:
@@ -526,6 +594,20 @@ class WebCollector:
                     if self._cancel_requested:
                         break
 
+                    # Если поисковик выдал 2 подряд ошибки соединения/блокировки с облачного IP,
+                    # не висим на оставшихся запросах — быстро переходим на гарантированные каталоги!
+                    if consecutive_search_failures >= 2 and not config.SEARCH_API_KEY:
+                        logger.warning(
+                            "Поисковый сервис DuckDuckGo недоступен с текущего IP (2 сбоя подряд). "
+                            "Автоматически переключаемся на обход отраслевых каталогов и реестров..."
+                        )
+                        if "Блокировка DuckDuckGo" not in str(warnings):
+                            warnings.append(
+                                "Поисковик DuckDuckGo временно ограничил запросы с IP дата-центра Render. "
+                                "Сбор автоматически переключен на каталоги и отраслевые реестры."
+                            )
+                        break
+
                     current_step += 1
                     queries_executed += 1
                     if progress_callback:
@@ -534,22 +616,25 @@ class WebCollector:
                         )
 
                     search_results = []
-                    # А. Если есть API ключ Serper.dev, ищем через него
+                    # А. Если настроен API-ключ (Serper.dev), используем его
                     if config.SEARCH_API_KEY:
                         search_results = await self.search_via_serper(session, query_str)
 
-                    # Б. Если API ключа нет или он не дал результатов, пробуем DuckDuckGo
+                    # Б. Если API нет или он пуст, вызываем DuckDuckGo
                     if not search_results:
                         ddg_results, status, reason = await self.search_via_duckduckgo(session, query_str)
-                        search_results = ddg_results
-                        if status in (403, 202) and f"DuckDuckGo HTTP {status}" not in str(warnings):
-                            warnings.append(
-                                f"Поисковик DuckDuckGo ограничил запросы с IP сервера (HTTP {status}). "
-                                f"Активирован глубокий сбор по каталогам и реестрам компаний."
-                            )
+                        if ddg_results:
+                            search_results = ddg_results
+                            consecutive_search_failures = 0
+                        else:
+                            consecutive_search_failures += 1
+                            if reason != "OK":
+                                warnings.append(f"Поиск «{query_str}»: {reason}")
 
                     search_links_found += len(search_results)
-                    await asyncio.sleep(config.PARSER_DELAY)
+                    # Вежливая пауза с джиттером
+                    pause = random.uniform(config.PARSER_DELAY, config.PARSER_DELAY + 1.0)
+                    await asyncio.sleep(pause)
 
                     for site_info in search_results[:config.PARSER_MAX_PER_QUERY]:
                         if self._cancel_requested:
@@ -576,7 +661,7 @@ class WebCollector:
                             else:
                                 updated_count += 1
 
-                        await asyncio.sleep(config.PARSER_DELAY)
+                        await asyncio.sleep(random.uniform(1.0, 2.0))
 
                 # 2. Обработка стартовых каталогов SEED_URLS
                 for seed_url in config.SEED_URLS:
@@ -628,12 +713,17 @@ class WebCollector:
                                     else:
                                         updated_count += 1
 
-                                await asyncio.sleep(config.PARSER_DELAY)
+                                await asyncio.sleep(random.uniform(1.0, 2.0))
 
-                # 3. Гарантированный сбор по реестру FALLBACK_CATALOG_COMPANIES
+                # 3. Гарантированный сбор по отраслевому реестру FALLBACK_CATALOG_COMPANIES
                 # (активируется всегда, обеспечивая 100% наполнение реальными подрядчиками на любом хостинге)
                 if progress_callback:
                     await progress_callback("🏗 Обработка реестра производителей МАФ и ограждений...")
+
+                logger.info(
+                    "Запуск обхода отраслевого реестра (%d компаний)...",
+                    len(FALLBACK_CATALOG_COMPANIES),
+                )
 
                 for comp in FALLBACK_CATALOG_COMPANIES:
                     if self._cancel_requested:
@@ -644,7 +734,7 @@ class WebCollector:
                         continue
                     processed_domains.add(parsed_dom)
 
-                    logger.info("Глубокий сбор компании из отраслевого реестра: %s", comp["url"])
+                    logger.info("Глубокий сбор компании из реестра: %s (%s)", parsed_dom, comp["url"])
                     lead_data = await self.scrape_target_site(
                         session,
                         {
@@ -657,7 +747,6 @@ class WebCollector:
                     )
 
                     if lead_data:
-                        # Объединяем теги из реестра и извлеченные со страницы
                         final_tags = database.merge_tags(comp["category_tags"], lead_data["category_tags"])
                         _, is_new = await database.save_lead(
                             source="web_parser",
@@ -673,11 +762,11 @@ class WebCollector:
                         else:
                             updated_count += 1
 
-                    await asyncio.sleep(config.PARSER_DELAY)
+                    await asyncio.sleep(random.uniform(1.0, 2.0))
 
         except Exception as e:
-            logger.error("Критическая ошибка при работе веб-парсера: %s", e, exc_info=True)
-            warnings.append(f"Ошибка парсера: {e}")
+            logger.error("Критическая ошибка при работе веб-парсера [%s]: %s", type(e).__name__, e, exc_info=True)
+            warnings.append(f"Критическая ошибка: {type(e).__name__} ({e})")
         finally:
             self.is_running = False
 
