@@ -2,7 +2,9 @@
 
 import asyncio
 import logging
+import os
 import sys
+from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -22,6 +24,24 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger("podryd_bot")
+
+
+async def _health_handler(request: web.Request) -> web.Response:
+    """Ответ на health check для Render Web Service."""
+    return web.Response(text="OK - Podryd Bot is running", status=200)
+
+
+async def start_health_server(port: int) -> web.AppRunner:
+    """Запуск встроенного HTTP-сервера для бесплатного тарифа Render Web Service."""
+    app = web.Application()
+    app.router.add_get("/", _health_handler)
+    app.router.add_get("/health", _health_handler)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    logger.info("Health-check HTTP сервер успешно запущен на 0.0.0.0:%d (Render Web Service)", port)
+    return runner
 
 
 async def set_bot_commands(bot: Bot) -> None:
@@ -65,15 +85,23 @@ async def main() -> None:
     logger.info("Бот @%s (ID: %s) успешно авторизован!", bot_info.username, bot_info.id)
     logger.info("Список ID администраторов: %s", config.ADMIN_IDS)
 
+    # Запуск встроенного веб-сервера для Render Web Service (если передан PORT)
+    http_runner = None
+    port_env = os.getenv("PORT", "").strip()
+    if port_env and port_env.isdigit():
+        http_runner = await start_health_server(int(port_env))
+
     # Запуск polling
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
     finally:
+        if http_runner:
+            await http_runner.cleanup()
+            logger.info("Health-check HTTP сервер остановлен.")
         await database.close_db()
         await bot.session.close()
         logger.info("Сессия бота и соединение с БД закрыты.")
-        logger.info("Сессия бота закрыта.")
 
 
 if __name__ == "__main__":

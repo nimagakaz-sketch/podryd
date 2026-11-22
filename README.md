@@ -98,29 +98,30 @@ Podryd/
 
 ---
 
-### Шаг 2. Настройка и деплой на Render
+### Шаг 2. Настройка и деплой на Render (Бесплатный Web Service)
 
-Для Telegram-бота с `polling` на Render идеально подходит тип сервиса **Background Worker** (он работает непрерывно 24/7 и не требует открывать HTTP-порты).
+Бот поддерживает работу на бесплатном тарифе Render **Web Service (Free)** со встроенным HTTP health-check сервером (автоматически привязывается к `$PORT`, что исключает конфликты контейнеров и таймауты).
 
 #### Вариант A. Автоматический деплой через Blueprints (Рекомендуется):
 1. Зайдите в [Render Dashboard](https://dashboard.render.com/).
 2. Нажмите **New +** → **Blueprint**.
 3. Выберите ваш подключенный репозиторий `podryd-telegram-bot`.
-4. Render автоматически прочитает файл `render.yaml`.
+4. Render автоматически прочитает файл `render.yaml` и настроит бесплатный Web Service.
 5. В окне переменных окружения заполните обязательные секреты:
    - `BOT_TOKEN`: ваш токен от `@BotFather`
    - `ADMIN_IDS`: ваш Telegram ID (например, `374188835`)
+   - `SERPER_API_KEY`: ваш бесплатный API-ключ от [serper.dev](https://serper.dev)
    - `DATABASE_URL`: (опционально) строка подключения к PostgreSQL.
 6. Нажмите **Apply**.
 
 ---
 
-#### Вариант B. Ручное создание сервиса (Background Worker):
-1. В [Render Dashboard](https://dashboard.render.com/) нажмите **New +** → **Background Worker**.
+#### Вариант B. Ручное создание сервиса (Web Service - Free):
+1. В [Render Dashboard](https://dashboard.render.com/) нажмите **New +** → **Web Service**.
 2. Подключите ваш GitHub-репозиторий `podryd-telegram-bot`.
 3. Заполните параметры сервиса:
    - **Name**: `podryd-telegram-bot`
-   - **Region**: `Frankfurt (EU Central)` или ближайший к вам
+   - **Region**: `Frankfurt (EU Central)` или любой другой
    - **Branch**: `main`
    - **Runtime**: `Python 3`
    - **Build Command**:
@@ -131,7 +132,7 @@ Podryd/
      ```bash
      python bot.py
      ```
-   - **Instance Type**: `Starter` (или бесплатный тариф, если доступен)
+   - **Instance Type**: `Free` (бесплатно)
 
 4. Перейдите во вкладку **Environment Variables** и добавьте переменные:
    | Ключ | Значение | Описание |
