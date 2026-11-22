@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 from aiogram import Bot, F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, FSInputFile, Message
 
@@ -24,23 +25,40 @@ def is_admin(user_id: int) -> bool:
 
 
 async def _run_parser_task(bot: Bot, admin_id: int) -> None:
-    """Фоновая задача выполнения веб-парсера с уведомлением администратора."""
+    """Фоновая задача выполнения веб-парсера с развернутым отчетом администратору."""
     try:
         result = await collector.run()
         added = result.get("added", 0)
         updated = result.get("updated", 0)
-        total_p = result.get("total_processed", 0)
+        sites_crawled = result.get("sites_crawled", 0)
+        search_links = result.get("search_links_found", 0)
+        queries_count = result.get("queries_count", 0)
+        duration = result.get("duration_seconds", 0)
+        search_mode = result.get("search_mode", "Поиск + Резервные каталоги")
+        warnings = result.get("warnings", [])
 
         stats = await database.get_stats()
+
+        # Формируем блок замечаний/предупреждений (если были)
+        warnings_text = ""
+        if warnings:
+            warnings_items = "\n".join([f"  • {w}" for w in warnings[:3]])
+            warnings_text = f"\n⚠️ <b>Предупреждения:</b>\n{warnings_items}\n"
+
         text = (
             "✅ <b>Веб-парсер успешно завершил сбор!</b>\n\n"
+            f"⚙️ <b>Источник поиска:</b> {search_mode}\n"
+            f"⏱ <b>Время работы:</b> {duration:.1f} сек.\n"
+            f"🔍 <b>Запросов выполнено:</b> {queries_count}\n"
+            f"🔗 <b>Ссылок найдено в поиске:</b> {search_links}\n"
+            f"🌐 <b>Сайтов исследовано:</b> {sites_crawled}\n\n"
             f"📥 <b>Новых записей добавлено:</b> {added}\n"
-            f"🔄 <b>Существующих обновлено:</b> {updated}\n"
-            f"🌐 <b>Обработано доменов/сайтов:</b> {total_p}\n\n"
+            f"🔄 <b>Существующих обновлено:</b> {updated}\n\n"
             f"📊 <b>Всего записей в базе:</b> {stats['total_count']}\n"
             f"📞 <b>С номерами телефонов:</b> {stats['with_phone']}\n"
-            f"🌐 <b>С сайтами:</b> {stats['with_website']}\n\n"
-            "Нажмите <b>«📊 Скачать базу в Excel»</b> в /admin, чтобы выгрузить обновленную базу с делением по листам!"
+            f"🌐 <b>С сайтами/ссылками:</b> {stats['with_website']}\n"
+            f"{warnings_text}\n"
+            "Нажмите <b>«📊 Скачать базу в Excel»</b> в /admin, чтобы выгрузить обновленную базу с делением по 6 листам!"
         )
         await bot.send_message(
             chat_id=admin_id,
@@ -83,7 +101,7 @@ async def cmd_admin(message: Message) -> None:
 
 @router.callback_query(F.data == "admin_refresh")
 async def callback_admin_refresh(callback: CallbackQuery) -> None:
-    """Обновление главного экрана админки."""
+    """Обновление главного экрана админки с защитой от message is not modified."""
     if not is_admin(callback.from_user.id):
         await callback.answer("⛔ Доступ запрещен", show_alert=True)
         return
@@ -99,16 +117,23 @@ async def callback_admin_refresh(callback: CallbackQuery) -> None:
         "Выберите действие:"
     )
     if callback.message:
-        await callback.message.edit_text(
-            text=text,
-            reply_markup=keyboards.get_admin_keyboard(is_collector_running=collector.is_running),
-        )
-    await callback.answer("Данные обновлены")
+        try:
+            await callback.message.edit_text(
+                text=text,
+                reply_markup=keyboards.get_admin_keyboard(is_collector_running=collector.is_running),
+            )
+            await callback.answer("Данные обновлены")
+        except TelegramBadRequest as e:
+            if "message is not modified" in str(e).lower():
+                await callback.answer("Данные пока не изменились")
+            else:
+                logger.warning("Ошибка обновления сообщения: %s", e)
+                await callback.answer()
 
 
 @router.callback_query(F.data == "admin_start_parser")
 async def callback_admin_start_parser(callback: CallbackQuery) -> None:
-    """Запуск асинхронного веб-парсера."""
+    """Запуск асинхронного веб-парсера с защитой от повторных нажатий."""
     if not is_admin(callback.from_user.id):
         await callback.answer("⛔ Доступ запрещен", show_alert=True)
         return
@@ -123,18 +148,24 @@ async def callback_admin_start_parser(callback: CallbackQuery) -> None:
     asyncio.create_task(_run_parser_task(callback.bot, callback.from_user.id))
 
     if callback.message:
-        await callback.message.edit_text(
-            "🚀 <b>Сборщик подрядчиков успешно запущен в фоне!</b>\n\n"
-            "Парсер обходит поисковые запросы по благоустройству, паркам, детским площадкам, "
-            "заборам и МАФам по всем целевым регионам, извлекает контакты, телефоны и тегирует организации.\n\n"
-            "⏳ <i>Вы можете продолжить пользоваться ботом — по окончании сбора вам придет уведомление.</i>",
-            reply_markup=keyboards.get_admin_keyboard(is_collector_running=True),
-        )
+        try:
+            await callback.message.edit_text(
+                "🚀 <b>Сборщик подрядчиков успешно запущен в фоне!</b>\n\n"
+                "Парсер обходит поисковые запросы по благоустройству, паркам, детским площадкам, "
+                "заборам и МАФам по всем целевым регионам, исследует каталоги, извлекает контакты и тегирует организации.\n\n"
+                "⏳ <i>Вы можете продолжить пользоваться ботом — по окончании сбора вам придет развернутый отчет.</i>",
+                reply_markup=keyboards.get_admin_keyboard(is_collector_running=True),
+            )
+        except TelegramBadRequest as e:
+            if "message is not modified" in str(e).lower():
+                await callback.answer("Сбор уже запущен")
+            else:
+                logger.warning("Ошибка UI при старте парсера: %s", e)
 
 
 @router.callback_query(F.data == "admin_stats")
 async def callback_admin_stats(callback: CallbackQuery) -> None:
-    """Показ подробной статистики."""
+    """Показ подробной статистики с защитой от message is not modified."""
     if not is_admin(callback.from_user.id):
         await callback.answer("⛔ Доступ запрещен", show_alert=True)
         return
@@ -161,11 +192,18 @@ async def callback_admin_stats(callback: CallbackQuery) -> None:
         f"{cats_text}\n"
     )
     if callback.message:
-        await callback.message.edit_text(
-            text=text,
-            reply_markup=keyboards.get_back_to_admin_keyboard(),
-        )
-    await callback.answer()
+        try:
+            await callback.message.edit_text(
+                text=text,
+                reply_markup=keyboards.get_back_to_admin_keyboard(),
+            )
+            await callback.answer()
+        except TelegramBadRequest as e:
+            if "message is not modified" in str(e).lower():
+                await callback.answer("Данные пока не изменились")
+            else:
+                logger.warning("Ошибка UI при показе статистики: %s", e)
+                await callback.answer()
 
 
 @router.callback_query(F.data == "admin_export_excel")

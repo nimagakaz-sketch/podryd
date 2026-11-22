@@ -36,6 +36,11 @@ EXPORTS_DIR = BASE_DIR / "exports"
 # WebApp URL (опционально)
 WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip() or None
 
+# Поисковый API ключ (опционально, для Serper.dev или Google Custom Search)
+# Serper.dev дает 2,500 бесплатных поисков Google без блокировок дата-центров
+SEARCH_API_KEY = os.getenv("SEARCH_API_KEY", "").strip() or None
+GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID", "").strip() or None
+
 
 # ==================== НАСТРОЙКИ ВЕБ-ПАРСЕРА ====================
 def _parse_list(raw: str, default: list[str]) -> list[str]:
