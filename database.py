@@ -131,12 +131,19 @@ async def init_db() -> None:
                     snippet TEXT NOT NULL DEFAULT '',
                     tg_username VARCHAR(255) DEFAULT '',
                     tg_user_id BIGINT DEFAULT NULL,
+                    status VARCHAR(32) NOT NULL DEFAULT 'new',
+                    notes TEXT NOT NULL DEFAULT '',
                     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 );
                 CREATE INDEX IF NOT EXISTS idx_contractors_source ON contractors(source);
                 CREATE INDEX IF NOT EXISTS idx_contractors_has_phone ON contractors(has_phone);
                 CREATE INDEX IF NOT EXISTS idx_contractors_has_website ON contractors(has_website);
+                CREATE INDEX IF NOT EXISTS idx_contractors_status ON contractors(status);
                 CREATE INDEX IF NOT EXISTS idx_contractors_created_at ON contractors(created_at);
+
+                -- Безопасные миграции колонок status и notes
+                ALTER TABLE contractors ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'new';
+                ALTER TABLE contractors ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
 
                 CREATE TABLE IF NOT EXISTS admin_regions (
                     id SERIAL PRIMARY KEY,
@@ -246,6 +253,15 @@ async def init_db() -> None:
             await db.execute("CREATE INDEX IF NOT EXISTS idx_contractors_has_phone ON contractors(has_phone)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_contractors_has_website ON contractors(has_website)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_contractors_created_at ON contractors(created_at)")
+
+            # Безопасная миграция колонок status и notes для SQLite
+            async with db.execute("PRAGMA table_info(contractors)") as cur:
+                current_cols = {row["name"] for row in await cur.fetchall()}
+            if "status" not in current_cols:
+                await db.execute("ALTER TABLE contractors ADD COLUMN status TEXT NOT NULL DEFAULT 'new'")
+            if "notes" not in current_cols:
+                await db.execute("ALTER TABLE contractors ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_contractors_status ON contractors(status)")
 
             # Таблица регионов для админки и парсера
             await db.execute(
@@ -537,7 +553,10 @@ async def get_all_contractors() -> list[dict[str, Any]]:
     query = """
         SELECT id, source, region, phone, website, company_name,
                category_tags, has_phone, has_website, snippet,
-               tg_username, tg_user_id, created_at
+               tg_username, tg_user_id,
+               COALESCE(status, 'new') AS status,
+               COALESCE(notes, '') AS notes,
+               created_at
         FROM contractors
         ORDER BY id DESC
     """
@@ -777,3 +796,227 @@ async def get_selected_region_names() -> list[str]:
             async with db.execute(query) as cur:
                 rows = await cur.fetchall()
                 return [r["name"] for r in rows]
+
+
+# ==================== WEB APP (MINI APP) API ФУНКЦИИ ====================
+
+async def get_leads_filtered(
+    source: str | None = None,
+    has_phone: int | None = None,
+    has_website: int | None = None,
+    region: str | None = None,
+    status: str | None = None,
+    search: str | None = None,
+    limit: int = 150,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
+    """
+    Возвращает список подрядчиков с фильтрацией, пагинацией и общее число записей.
+    """
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+
+    if config.DATABASE_URL:
+        pool = await get_pg_pool()
+        conditions = []
+        params = []
+        idx = 1
+        if source and source != "all":
+            conditions.append(f"source = ${idx}")
+            params.append(source)
+            idx += 1
+        if has_phone is not None:
+            conditions.append(f"has_phone = ${idx}")
+            params.append(int(has_phone))
+            idx += 1
+        if has_website is not None:
+            conditions.append(f"has_website = ${idx}")
+            params.append(int(has_website))
+            idx += 1
+        if region and region != "all":
+            conditions.append(f"region = ${idx}")
+            params.append(region)
+            idx += 1
+        if status and status != "all":
+            conditions.append(f"status = ${idx}")
+            params.append(status)
+            idx += 1
+        if search:
+            pat = f"%{search.strip()}%"
+            conditions.append(
+                f"(company_name ILIKE ${idx} OR snippet ILIKE ${idx} OR website ILIKE ${idx} OR phone LIKE ${idx} OR category_tags ILIKE ${idx} OR notes ILIKE ${idx})"
+            )
+            params.append(pat)
+            idx += 1
+
+        where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+        async with pool.acquire() as conn:
+            count_query = f"SELECT COUNT(*) FROM contractors {where_clause}"
+            total_count = await conn.fetchval(count_query, *params) or 0
+
+            data_query = f"""
+                SELECT id, source, region, phone, website,
+                       company_name, company_name AS title,
+                       category_tags, category_tags AS categories,
+                       has_phone, has_website, snippet,
+                       tg_username, tg_user_id,
+                       COALESCE(status, 'new') AS status,
+                       COALESCE(notes, '') AS notes,
+                       created_at
+                FROM contractors
+                {where_clause}
+                ORDER BY id DESC
+                LIMIT ${idx} OFFSET ${idx + 1}
+            """
+            rows = await conn.fetch(data_query, *params, limit, offset)
+            leads = []
+            for r in rows:
+                item = dict(r)
+                if item.get("created_at") and hasattr(item["created_at"], "strftime"):
+                    item["created_at"] = item["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+                leads.append(item)
+            return leads, total_count
+    else:
+        conditions = []
+        params = []
+        if source and source != "all":
+            conditions.append("source = ?")
+            params.append(source)
+        if has_phone is not None:
+            conditions.append("has_phone = ?")
+            params.append(int(has_phone))
+        if has_website is not None:
+            conditions.append("has_website = ?")
+            params.append(int(has_website))
+        if region and region != "all":
+            conditions.append("region = ?")
+            params.append(region)
+        if status and status != "all":
+            conditions.append("status = ?")
+            params.append(status)
+        if search:
+            pat = f"%{search.strip().lower()}%"
+            conditions.append(
+                "(py_lower(company_name) LIKE ? OR py_lower(snippet) LIKE ? OR py_lower(website) LIKE ? OR phone LIKE ? OR py_lower(category_tags) LIKE ? OR py_lower(notes) LIKE ?)"
+            )
+            params.extend([pat, pat, pat, pat, pat, pat])
+
+        where_clause = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+
+        async with get_sqlite_connection() as db:
+            await db.create_function("py_lower", 1, lambda s: s.lower() if s is not None else "")
+            db.row_factory = aiosqlite.Row
+            count_query = f"SELECT COUNT(*) FROM contractors {where_clause}"
+            async with db.execute(count_query, params) as cur:
+                r = await cur.fetchone()
+                total_count = r[0] if r else 0
+
+            data_query = f"""
+                SELECT id, source, region, phone, website,
+                       company_name, company_name AS title,
+                       category_tags, category_tags AS categories,
+                       has_phone, has_website, snippet,
+                       tg_username, tg_user_id,
+                       COALESCE(status, 'new') AS status,
+                       COALESCE(notes, '') AS notes,
+                       created_at
+                FROM contractors
+                {where_clause}
+                ORDER BY id DESC
+                LIMIT ? OFFSET ?
+            """
+            data_params = list(params) + [limit, offset]
+            async with db.execute(data_query, data_params) as cur:
+                rows = await cur.fetchall()
+                leads = [dict(row) for row in rows]
+            return leads, total_count
+
+
+async def update_lead_status(
+    lead_id: int, status: str, notes: str | None = None
+) -> bool:
+    """Обновляет статус работы с подрядчиком и опционально заметку."""
+    allowed = {"new", "price_sent", "called", "offer_sent", "deal", "rejected"}
+    if status not in allowed:
+        return False
+
+    if config.DATABASE_URL:
+        pool = await get_pg_pool()
+        async with pool.acquire() as conn:
+            if notes is not None:
+                res = await conn.execute(
+                    "UPDATE contractors SET status = $1, notes = $2 WHERE id = $3",
+                    status,
+                    notes,
+                    lead_id,
+                )
+            else:
+                res = await conn.execute(
+                    "UPDATE contractors SET status = $1 WHERE id = $2",
+                    status,
+                    lead_id,
+                )
+            return "UPDATE 1" in res
+    else:
+        async with _sqlite_lock:
+            async with get_sqlite_connection() as db:
+                if notes is not None:
+                    cur = await db.execute(
+                        "UPDATE contractors SET status = ?, notes = ? WHERE id = ?",
+                        (status, notes, lead_id),
+                    )
+                else:
+                    cur = await db.execute(
+                        "UPDATE contractors SET status = ? WHERE id = ?",
+                        (status, lead_id),
+                    )
+                await db.commit()
+                return cur.rowcount > 0
+
+
+async def get_leads_summary_stats() -> dict[str, Any]:
+    """Возвращает сводную статистику для Mini App: общее количество, по статусам и наличию контактов."""
+    statuses = ["new", "price_sent", "called", "offer_sent", "deal", "rejected"]
+    if config.DATABASE_URL:
+        pool = await get_pg_pool()
+        async with pool.acquire() as conn:
+            total_count = await conn.fetchval("SELECT COUNT(*) FROM contractors") or 0
+            with_phone = await conn.fetchval("SELECT COUNT(*) FROM contractors WHERE has_phone = 1") or 0
+            with_website = await conn.fetchval("SELECT COUNT(*) FROM contractors WHERE has_website = 1") or 0
+            by_status = {}
+            for st in statuses:
+                cnt = await conn.fetchval("SELECT COUNT(*) FROM contractors WHERE status = $1", st) or 0
+                by_status[st] = cnt
+            deals_count = by_status.get("deal", 0) + by_status.get("offer_sent", 0) + by_status.get("called", 0)
+            return {
+                "total_count": total_count,
+                "with_phone": with_phone,
+                "with_website": with_website,
+                "by_status": by_status,
+                "deals_count": deals_count,
+            }
+    else:
+        async with get_sqlite_connection() as db:
+            async with db.execute("SELECT COUNT(*) FROM contractors") as cur:
+                r = await cur.fetchone()
+                total_count = r[0] if r else 0
+            async with db.execute("SELECT COUNT(*) FROM contractors WHERE has_phone = 1") as cur:
+                r = await cur.fetchone()
+                with_phone = r[0] if r else 0
+            async with db.execute("SELECT COUNT(*) FROM contractors WHERE has_website = 1") as cur:
+                r = await cur.fetchone()
+                with_website = r[0] if r else 0
+            by_status = {}
+            for st in statuses:
+                async with db.execute("SELECT COUNT(*) FROM contractors WHERE status = ?", (st,)) as cur:
+                    r = await cur.fetchone()
+                    by_status[st] = r[0] if r else 0
+            deals_count = by_status.get("deal", 0) + by_status.get("offer_sent", 0) + by_status.get("called", 0)
+            return {
+                "total_count": total_count,
+                "with_phone": with_phone,
+                "with_website": with_website,
+                "by_status": by_status,
+                "deals_count": deals_count,
+            }

@@ -119,6 +119,7 @@ async def cmd_admin(message: Message, state: FSMContext) -> None:
     stats = await database.get_stats()
     selected_regions = await database.get_selected_region_names()
 
+    webapp_link = f'<a href="{config.WEBAPP_URL}">Открыть Mini App</a>' if config.WEBAPP_URL else "https://podryd.onrender.com"
     text = (
         "👑 <b>Панель администратора</b>\n\n"
         "Управление базой B2B-подрядчиков по благоустройству, детским площадкам, заборам и МАФам.\n\n"
@@ -126,7 +127,8 @@ async def cmd_admin(message: Message, state: FSMContext) -> None:
         f"📞 <b>С номерами телефонов:</b> {stats['with_phone']}\n"
         f"🌐 <b>С сайтами/ссылками:</b> {stats['with_website']}\n"
         f"⏳ <b>Добавлено за 24 часа:</b> {stats['last_24h_count']}\n"
-        f"📍 <b>Выбрано регионов для сбора:</b> {len(selected_regions)} шт.\n\n"
+        f"📍 <b>Выбрано регионов для сбора:</b> {len(selected_regions)} шт.\n"
+        f"📱 <b>Mini App (CRM онлайн):</b> {webapp_link}\n\n"
         "Выберите действие:"
     )
     await message.answer(
@@ -149,6 +151,7 @@ async def callback_admin_refresh(callback: CallbackQuery, state: FSMContext) -> 
     stats = await database.get_stats()
     selected_regions = await database.get_selected_region_names()
 
+    webapp_link = f'<a href="{config.WEBAPP_URL}">Открыть Mini App</a>' if config.WEBAPP_URL else "https://podryd.onrender.com"
     text = (
         "👑 <b>Панель администратора</b>\n\n"
         "Управление базой B2B-подрядчиков по благоустройству, детским площадкам, заборам и МАФам.\n\n"
@@ -156,7 +159,8 @@ async def callback_admin_refresh(callback: CallbackQuery, state: FSMContext) -> 
         f"📞 <b>С номерами телефонов:</b> {stats['with_phone']}\n"
         f"🌐 <b>С сайтами/ссылками:</b> {stats['with_website']}\n"
         f"⏳ <b>Добавлено за 24 часа:</b> {stats['last_24h_count']}\n"
-        f"📍 <b>Выбрано регионов для сбора:</b> {len(selected_regions)} шт.\n\n"
+        f"📍 <b>Выбрано регионов для сбора:</b> {len(selected_regions)} шт.\n"
+        f"📱 <b>Mini App (CRM онлайн):</b> {webapp_link}\n\n"
         "Выберите действие:"
     )
     if callback.message:

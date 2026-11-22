@@ -33,8 +33,8 @@ DB_PATH = BASE_DIR / os.getenv("DB_PATH", "data/contractors.db")
 CATALOG_PDF_PATH = BASE_DIR / os.getenv("CATALOG_PDF_PATH", "assets/price_catalog.pdf")
 EXPORTS_DIR = BASE_DIR / "exports"
 
-# WebApp URL (опционально)
-WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip() or None
+# WebApp URL (по умолчанию https://podryd.onrender.com)
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://podryd.onrender.com").strip()
 
 # ==================== ПОИСКОВЫЙ API (SERPER.DEV) ====================
 # Serper.dev дает 2,500 бесплатных поисков Google без блокировок дата-центров Render:

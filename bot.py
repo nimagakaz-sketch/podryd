@@ -14,6 +14,7 @@ from aiogram.types import BotCommand, BotCommandScopeDefault
 import config
 import database
 from handlers import admin, user
+import webapp_server
 
 # Настройка логирования
 logging.basicConfig(
@@ -24,24 +25,6 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger("podryd_bot")
-
-
-async def _health_handler(request: web.Request) -> web.Response:
-    """Ответ на health check для Render Web Service."""
-    return web.Response(text="OK - Podryd Bot is running", status=200)
-
-
-async def start_health_server(port: int) -> web.AppRunner:
-    """Запуск встроенного HTTP-сервера для бесплатного тарифа Render Web Service."""
-    app = web.Application()
-    app.router.add_get("/", _health_handler)
-    app.router.add_get("/health", _health_handler)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", port)
-    await site.start()
-    logger.info("Health-check HTTP сервер успешно запущен на 0.0.0.0:%d (Render Web Service)", port)
-    return runner
 
 
 async def set_bot_commands(bot: Bot) -> None:
@@ -85,11 +68,16 @@ async def main() -> None:
     logger.info("Бот @%s (ID: %s) успешно авторизован!", bot_info.username, bot_info.id)
     logger.info("Список ID администраторов: %s", config.ADMIN_IDS)
 
-    # Запуск встроенного веб-сервера для Render Web Service (если передан PORT)
+    # Запуск встроенного веб-сервера для Render Web Service и Telegram Mini App
     http_runner = None
-    port_env = os.getenv("PORT", "").strip()
-    if port_env and port_env.isdigit():
-        http_runner = await start_health_server(int(port_env))
+    port_env = os.getenv("PORT", "8000").strip()
+    port = int(port_env) if port_env.isdigit() else 8000
+    try:
+        http_runner = await webapp_server.start_webapp_server(port)
+        logger.info("Mini App & Web сервер успешно запущен на порту %d", port)
+    except Exception as e:
+        logger.error("Ошибка при запуске Mini App веб-сервера на порту %d: %s", port, e)
+        http_runner = None
 
     # Запуск polling
     try:
@@ -98,7 +86,7 @@ async def main() -> None:
     finally:
         if http_runner:
             await http_runner.cleanup()
-            logger.info("Health-check HTTP сервер остановлен.")
+            logger.info("Mini App HTTP сервер остановлен.")
         await database.close_db()
         await bot.session.close()
         logger.info("Сессия бота и соединение с БД закрыты.")

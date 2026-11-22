@@ -8,6 +8,8 @@ from aiogram.types import (
     WebAppInfo,
 )
 
+import config
+
 
 def get_start_keyboard(webapp_url: str | None = None) -> InlineKeyboardMarkup:
     """Главная inline-клавиатура приветствия."""
@@ -20,13 +22,14 @@ def get_start_keyboard(webapp_url: str | None = None) -> InlineKeyboardMarkup:
         ]
     ]
 
-    # Если настроен Web App URL, добавляем кнопку мини-приложения с тулбаром Liquid Glass
-    if webapp_url:
+    # Если настроен Web App URL, добавляем кнопку мини-приложения
+    target_url = webapp_url or config.WEBAPP_URL
+    if target_url:
         buttons.append(
             [
                 InlineKeyboardButton(
                     text="🌐 Открыть каталог (Web App)",
-                    web_app=WebAppInfo(url=webapp_url),
+                    web_app=WebAppInfo(url=f"{target_url}?tab=catalog"),
                 )
             ]
         )
@@ -90,12 +93,19 @@ def get_phone_reply_keyboard() -> ReplyKeyboardMarkup:
 def get_admin_keyboard(
     is_collector_running: bool = False, selected_regions_count: int = 0
 ) -> InlineKeyboardMarkup:
-    """Inline-клавиатура панели администратора с кнопкой выбора регионов."""
+    """Inline-клавиатура панели администратора с кнопкой выбора регионов и Mini App."""
     parser_btn_text = "⏳ Сбор выполняется..." if is_collector_running else "🌐 Запустить сбор"
     reg_btn_text = f"📍 Выбрать регионы ({selected_regions_count})" if selected_regions_count > 0 else "📍 Выбрать регионы"
+    webapp_url = config.WEBAPP_URL or "https://podryd.onrender.com"
 
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="📱 Открыть Mini App (База)",
+                    web_app=WebAppInfo(url=webapp_url),
+                )
+            ],
             [
                 InlineKeyboardButton(
                     text=reg_btn_text,

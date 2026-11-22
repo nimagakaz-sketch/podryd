@@ -1,742 +1,1447 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <title>Каталог МАФ и Ограждений — B2B Благоустройство</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>B2B Подрядчики — Благоустройство & МАФ</title>
+  <!-- Telegram Web App SDK -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
-      --u: min(.46px, calc((100vw - 24px)/1058));
-      --blue: #3a8bf7;
-      --green: #34c759;
-      --orange: #ff9500;
-      --top: calc(max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px)) + 12px);
-      --bot: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
-      --pl: max(16px, env(safe-area-inset-left, 0px));
-      --pr: max(16px, env(safe-area-inset-right, 0px));
-      color-scheme: dark;
+      --bg-main: #0b0d14;
+      --bg-card: #121622;
+      --bg-card-hover: #181d2c;
+      --bg-input: #151926;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: #7c3aed;
+      --accent-violet: #7c3aed;
+      --accent-indigo: #6366f1;
+      --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --color-success: #10b981;
+      --color-warning: #f59e0b;
+      --color-info: #38bdf8;
+      --color-danger: #ef4444;
+      --safe-top: max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px));
+      --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
+    }
+
+    * {
       box-sizing: border-box;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html, body {
-      height: 100%;
-      background: #0d0f12;
-      color: #fff;
-      font-family: -apple-system, "SF Pro Text", Inter, system-ui, "Segoe UI", sans-serif;
-      user-select: none;
-      -webkit-user-select: none;
-      overflow-x: hidden;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    /* Фоновые градиентные сферы */
-    .bg-blobs {
-      position: fixed;
-      inset: 0;
-      overflow: hidden;
-      z-index: 0;
-      pointer-events: none;
-    }
-    .bg-blobs i {
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(65px);
-      opacity: 0.45;
-    }
-    .bg-blobs i:nth-child(1) { width: 75vw; height: 75vw; left: -20vw; top: -10vh; background: #1f56a3; }
-    .bg-blobs i:nth-child(2) { width: 65vw; height: 65vw; right: -25vw; top: 35vh; background: #e05330; }
-    .bg-blobs i:nth-child(3) { width: 70vw; height: 70vw; left: 15vw; bottom: -20vh; background: #2f8e5f; }
-
-    /* Контейнер контента */
-    .app-container {
-      position: relative;
-      z-index: 1;
-      height: 100%;
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow-x: hidden;
+      padding-top: calc(var(--safe-top) + 8px);
+      padding-bottom: calc(var(--safe-bottom) + 80px);
     }
 
-    /* Верхний хедер */
-    .header {
-      padding: var(--top) var(--pr) 12px var(--pl);
-      background: rgba(13, 15, 18, 0.7);
-      -webkit-backdrop-filter: blur(12px);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      flex-shrink: 0;
+    /* Фоновые градиенты */
+    .bg-glow {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
     }
-    .header-badge {
-      display: inline-block;
-      padding: 4px 10px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      border-radius: 20px;
-      background: rgba(58, 139, 247, 0.2);
-      color: var(--blue);
-      border: 1px solid rgba(58, 139, 247, 0.35);
-      margin-bottom: 6px;
+    .bg-glow i {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.22;
     }
-    .header h1 {
+    .bg-glow i:nth-child(1) { width: 400px; height: 400px; left: -100px; top: -100px; background: #6d28d9; }
+    .bg-glow i:nth-child(2) { width: 350px; height: 350px; right: -120px; top: 30%; background: #2563eb; }
+    .bg-glow i:nth-child(3) { width: 300px; height: 300px; left: 10%; bottom: -50px; background: #059669; }
+
+    .app-wrapper {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    /* Хедер */
+    header.app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .header-info h1 {
       font-size: 20px;
       font-weight: 700;
       letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .header p {
+    .header-info p {
       font-size: 13px;
-      color: #9ba1a6;
+      color: var(--text-secondary);
       margin-top: 3px;
     }
-
-    /* Прокручиваемый список экранов */
-    .screens {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
-    }
-    .screen {
-      position: absolute;
-      inset: 0;
-      padding: 16px var(--pr) calc(210 * var(--u) + var(--bot) + 30px) var(--pl);
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      opacity: 0;
-      visibility: hidden;
-      transform: translateY(12px);
-      transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
-    }
-    .screen.active {
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0);
-    }
-
-    /* Стеклянные карточки (Liquid Glass Cards) */
-    .glass-card {
-      background: rgba(30, 34, 42, 0.65);
-      -webkit-backdrop-filter: blur(16px) saturate(1.8);
-      backdrop-filter: blur(16px) saturate(1.8);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
       border-radius: 20px;
-      padding: 16px;
-      margin-bottom: 14px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      background: rgba(124, 58, 237, 0.15);
+      color: #a78bfa;
+      border: 1px solid rgba(124, 58, 237, 0.3);
     }
-    .glass-card-title {
+    .header-badge .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 6px #10b981;
+    }
+
+    /* Метрики */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    @media (min-width: 600px) {
+      .metrics-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s, background-color 0.15s;
+    }
+    .metric-card:active {
+      transform: scale(0.98);
+    }
+    .metric-card.active-filter {
+      border-color: var(--accent-violet);
+      background: var(--bg-card-hover);
+      box-shadow: 0 0 12px rgba(124, 58, 237, 0.25);
+    }
+    .metric-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .metric-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .metric-icon {
+      font-size: 16px;
+    }
+    .metric-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .metric-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Блок поиска и фильтров */
+    .filters-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .search-box svg {
+      position: absolute;
+      left: 12px;
+      width: 18px;
+      height: 18px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 11px 36px 11px 38px;
+      font-size: 14px;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-input:focus {
+      border-color: var(--accent-violet);
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+    }
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+    .search-clear {
+      position: absolute;
+      right: 12px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      display: none;
+    }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .filter-select {
+      flex: 1;
+      min-width: 130px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--text-primary);
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .filter-select:focus {
+      border-color: var(--accent-violet);
+    }
+
+    .filter-chips {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .filter-chips::-webkit-scrollbar { display: none; }
+    .chip {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .chip:hover {
+      color: var(--text-primary);
+    }
+    .chip.active {
+      background: var(--accent-violet);
+      border-color: var(--accent-violet);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
+    }
+
+    .filter-status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding-top: 4px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .reset-btn {
+      background: none;
+      border: none;
+      color: #818cf8;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    /* Список карточек подрядчиков */
+    .leads-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .lead-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 16px;
+      transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+    .lead-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+    }
+
+    .lead-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .lead-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.3;
+    }
+    .source-badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 8px;
+      font-weight: 600;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .source-serper { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .source-catalog { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+    .source-bot { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+    .lead-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+    .region-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #e2e8f0;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    .category-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .category-chip {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+    }
+
+    /* Кнопки контактов */
+    .lead-contacts {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    @media (min-width: 500px) {
+      .lead-contacts {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .contact-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+    .phone-btn {
+      background: rgba(16, 185, 129, 0.12);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.25);
+    }
+    .phone-btn:hover {
+      background: rgba(16, 185, 129, 0.22);
+    }
+    .copy-phone-btn {
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      font-size: 11px;
+      padding: 3px 7px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+    .website-btn {
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+      border-color: rgba(56, 189, 248, 0.25);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .website-btn:hover {
+      background: rgba(56, 189, 248, 0.22);
+    }
+    .website-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-right: 4px;
+    }
+
+    /* Блок управления статусом и заметками */
+    .lead-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-subtle);
+    }
+    @media (min-width: 550px) {
+      .lead-actions {
+        grid-template-columns: 190px 1fr;
+      }
+    }
+
+    .status-select-wrapper {
+      position: relative;
+    }
+    .status-select {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .status-new { color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); }
+    .status-price_sent { color: #818cf8; border-color: rgba(129, 140, 248, 0.4); }
+    .status-called { color: #fbbf24; border-color: rgba(251, 191, 36, 0.4); }
+    .status-offer_sent { color: #f97316; border-color: rgba(249, 115, 22, 0.4); }
+    .status-deal { color: #34d399; border-color: rgba(52, 211, 153, 0.5); background: rgba(16, 185, 129, 0.08); }
+    .status-rejected { color: #f87171; border-color: rgba(248, 113, 113, 0.4); }
+
+    .notes-box {
+      display: flex;
+      gap: 6px;
+    }
+    .notes-input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 7px 10px;
+      font-size: 12px;
+      color: var(--text-primary);
+      outline: none;
+    }
+    .notes-input:focus {
+      border-color: var(--accent-violet);
+    }
+    .save-notes-btn {
+      background: var(--accent-violet);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .save-notes-btn:active {
+      opacity: 0.8;
+    }
+
+    /* Вкладки навигации снизу */
+    .bottom-nav {
+      position: fixed;
+      bottom: calc(var(--safe-bottom) + 10px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 32px);
+      max-width: 480px;
+      background: rgba(18, 22, 34, 0.88);
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 26px;
+      display: flex;
+      padding: 6px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      z-index: 100;
+    }
+    .nav-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      padding: 9px 6px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .nav-btn.active {
+      background: var(--accent-gradient);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+    }
+
+    /* Секции контента (Вкладки) */
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Вкладка Каталог МАФ */
+    .catalog-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .catalog-title {
       font-size: 17px;
       font-weight: 700;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
-    .price-tag {
-      font-size: 15px;
+    .catalog-price {
+      color: #38bdf8;
       font-weight: 700;
-      color: #5ac8fa;
-      background: rgba(90, 200, 250, 0.15);
+      background: rgba(56, 189, 248, 0.12);
       padding: 4px 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(90, 200, 250, 0.25);
+      border-radius: 8px;
+      font-size: 14px;
     }
-    .glass-card-specs {
-      font-size: 13px;
-      color: #b0b3b8;
-      line-height: 1.45;
-      margin-top: 6px;
-    }
-    .spec-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 3px 0;
-      border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
-    }
-    .spec-item:last-child { border-bottom: none; }
-
-    /* Баннер бесплатной доставки */
-    .delivery-banner {
-      background: linear-gradient(135deg, rgba(52, 199, 89, 0.2), rgba(47, 142, 95, 0.3));
-      border: 1px solid rgba(52, 199, 89, 0.4);
-      border-radius: 18px;
-      padding: 14px 16px;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .delivery-icon {
-      font-size: 26px;
-      flex-shrink: 0;
-    }
-    .delivery-text h3 {
-      font-size: 15px;
-      font-weight: 700;
-      color: #4cd964;
-    }
-    .delivery-text p {
+    .catalog-specs {
       font-size: 12px;
-      color: #d1f2d9;
-      margin-top: 2px;
+      color: var(--text-secondary);
+      line-height: 1.5;
     }
 
-    /* Кнопка действия */
-    .btn-action {
-      display: block;
-      width: 100%;
-      padding: 14px;
-      text-align: center;
-      border-radius: 16px;
-      background: #3a8bf7;
-      color: #fff;
-      font-size: 15px;
-      font-weight: 700;
-      text-decoration: none;
-      border: none;
-      cursor: pointer;
-      margin-top: 10px;
-      box-shadow: 0 4px 16px rgba(58, 139, 247, 0.4);
-      transition: transform 0.15s, opacity 0.15s;
-    }
-    .btn-action:active {
-      transform: scale(0.98);
-      opacity: 0.9;
-    }
-
-    /* ========================================================
-       LIQUID GLASS TAB BAR STYLES (из liquid-glass-kit)
-       ======================================================== */
-    .dock {
+    /* Уведомление Toast */
+    .toast {
       position: fixed;
-      left: 0;
-      right: 0;
-      bottom: calc(var(--bot) + 12px);
-      display: flex;
-      justify-content: center;
-      z-index: 10;
-      pointer-events: none;
-    }
-    .bar {
-      position: relative;
-      width: calc(843 * var(--u));
-      height: calc(190 * var(--u));
-      touch-action: none;
-      cursor: grab;
-      pointer-events: auto;
-    }
-    .bar.down { cursor: grabbing; }
-    .matte {
-      border-radius: 999px;
-      background: rgba(30, 32, 38, 0.72);
-      -webkit-backdrop-filter: blur(14px) saturate(1.8);
-      backdrop-filter: blur(14px) saturate(1.8);
-      box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.08), 0 10px 28px rgba(0, 0, 0, 0.55);
-    }
-    .matte::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      padding: 1px;
-      pointer-events: none;
-      filter: blur(0.4px);
-      background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.25) 30%, rgba(255,255,255,0.25) 70%, rgba(255,255,255,0.05) 100%);
-      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor;
-      mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-    }
-    .base { position: absolute; inset: 0; }
-    .fil {
-      position: absolute;
-      left: calc(-60 * var(--u));
-      top: calc(-40 * var(--u));
-      width: calc(963 * var(--u));
-      height: calc(270 * var(--u));
-      pointer-events: none;
-      background: rgba(30, 32, 38, 0.72);
-      -webkit-backdrop-filter: blur(14px) saturate(1.8);
-      backdrop-filter: blur(14px) saturate(1.8);
-      clip-path: path('M0 0 Z');
-    }
-    .thumb, .solid {
-      position: absolute;
-      top: calc(12 * var(--u));
-      left: calc(22.5 * var(--u) + var(--x) * 273 * var(--u));
-      width: calc(252 * var(--u));
-      height: calc(165 * var(--u));
-      translate: calc(var(--tx) * var(--u)) 0;
-      scale: var(--sx) var(--sy);
-      pointer-events: none;
-    }
-    .solid {
-      background: rgba(255, 255, 255, 0.16);
-      border-radius: 999px;
-      opacity: clamp(0, calc(1 - var(--p) * 4), 1);
-      will-change: transform, opacity;
-    }
-    .thumb {
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      box-shadow: 0 calc(6px + var(--p) * 10px) calc(18px + var(--p) * 20px) rgba(0, 0, 0, calc(0.3 + var(--p) * 0.25));
-      opacity: clamp(0, calc(var(--p) * 4), 1);
-      overflow: hidden;
-      border-radius: 999px;
-      will-change: transform, opacity;
-    }
-    .lens {
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      overflow: hidden;
-      background: #252830;
-      box-shadow: inset 0 0 calc(22 * var(--u)) calc(3 * var(--u)) rgba(0, 0, 0, 0.6);
-    }
-    .lens .tabs {
-      inset: auto;
-      left: calc(-22.5 * var(--u) - var(--x) * 273 * var(--u) - var(--tx) * var(--u) - 1px);
-      top: calc(-12 * var(--u) - 1px);
-      width: calc(843 * var(--u));
-      height: calc(190 * var(--u));
-    }
-    .tabs {
-      position: absolute;
-      inset: 0;
-      display: grid;
-      grid-template-columns: repeat(3, calc(273 * var(--u)));
-      padding: 0 calc(12 * var(--u));
-      pointer-events: none;
-    }
-    .tab {
-      all: unset;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: calc(10 * var(--u));
-      font-size: calc(30 * var(--u));
+      top: calc(var(--safe-top) + 20px);
+      left: 50%;
+      transform: translateX(-50%) translateY(-30px);
+      background: #1e293b;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 10px 18px;
+      border-radius: 14px;
+      font-size: 13px;
       font-weight: 600;
-      line-height: 1.2;
-      color: #9ba1a6;
-      transition: color 0.25s;
-      pointer-events: auto;
-      cursor: pointer;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .bar > .tabs > .tab.on > * {
-      opacity: clamp(0, calc(1 - var(--p) * 4), 1);
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      visibility: visible;
     }
-    .tab.on { color: var(--blue); }
-    .ico {
-      height: calc(70 * var(--u));
-      display: grid;
-      place-items: center;
+
+    /* Скелетон загрузки */
+    .skeleton-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 16px;
+      height: 120px;
+      animation: pulse 1.5s infinite;
     }
-    .ico svg { height: 100%; width: auto; display: block; }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 0.25; }
+    }
+
+    /* Пустой экран */
+    .empty-state {
+      text-align: center;
+      padding: 40px 16px;
+      color: var(--text-muted);
+    }
+    .empty-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+    }
   </style>
 </head>
 <body>
-  <!-- Размытые шары заднего плана -->
-  <div class="bg-blobs"><i></i><i></i><i></i></div>
+  <!-- Размытые декоративные круги фона -->
+  <div class="bg-glow"><i></i><i></i><i></i></div>
 
-  <div class="app-container">
+  <div class="app-wrapper">
     <!-- Хедер -->
-    <header class="header">
-      <div class="header-badge">B2B Каталог оборудования</div>
-      <h1>МАФ & Ограждения</h1>
-      <p>Благоустройство парков, ЖК и детских садов</p>
+    <header class="app-header">
+      <div class="header-info">
+        <h1>🏗️ B2B База подрядчиков</h1>
+        <p>Благоустройство, детские площадки, МАФ и заборы</p>
+      </div>
+      <div class="header-badge">
+        <span class="dot"></span>
+        <span>CRM LIVE</span>
+      </div>
     </header>
 
-    <!-- Экраны с карточками -->
-    <main class="screens">
-      <!-- ЭКРАН 0: Площадки & МАФ -->
-      <section class="screen active" id="screen-0">
-        <div class="delivery-banner">
-          <div class="delivery-icon">🚚</div>
-          <div class="delivery-text">
-            <h3>Доставка за счет поставщика</h3>
-            <p>Бесплатная логистика оборудования до вашего объекта</p>
+    <!-- ВКЛАДКА 1: БАЗА ПОДРЯДЧИКОВ (CRM) -->
+    <main id="tab-leads" class="tab-content active">
+      <!-- Сводные метрики -->
+      <section class="metrics-grid">
+        <div class="metric-card" id="metric-all" onclick="setQuickFilter('all')">
+          <div class="metric-top">
+            <span class="metric-label">Всего подрядчиков</span>
+            <span class="metric-icon">👥</span>
           </div>
+          <div class="metric-value" id="stat-total">-</div>
+          <div class="metric-sub">Вся база данных</div>
         </div>
 
-        <div class="glass-card">
-          <div class="glass-card-title">
-            <span>Качалка-балансир «Малая»</span>
-            <span class="price-tag">18 000 ₽</span>
+        <div class="metric-card" id="metric-phone" onclick="setQuickFilter('has_phone')">
+          <div class="metric-top">
+            <span class="metric-label">С телефонами</span>
+            <span class="metric-icon">📞</span>
           </div>
-          <div class="glass-card-specs">
-            <div class="spec-item"><span>Размеры:</span><span>280 × 100 × 40 см</span></div>
-            <div class="spec-item"><span>Возраст:</span><span>от 3 до 14 лет</span></div>
-            <div class="spec-item"><span>Материал:</span><span>Брус, влагостойкая фанера ФСФ</span></div>
-          </div>
+          <div class="metric-value" id="stat-phone">-</div>
+          <div class="metric-sub">Готовы к звонку</div>
         </div>
 
-        <div class="glass-card">
-          <div class="glass-card-title">
-            <span>Качалка на пружине «Джип»</span>
-            <span class="price-tag">39 000 ₽</span>
+        <div class="metric-card" id="metric-site" onclick="setQuickFilter('has_website')">
+          <div class="metric-top">
+            <span class="metric-label">С сайтами</span>
+            <span class="metric-icon">🌐</span>
           </div>
-          <div class="glass-card-specs">
-            <div class="spec-item"><span>Механизм:</span><span>Усиленная пружина ГОСТ</span></div>
-            <div class="spec-item"><span>Покрытие:</span><span>Двухкомпонентная эмаль</span></div>
-            <div class="spec-item"><span>Возраст:</span><span>от 2 до 8 лет</span></div>
-          </div>
+          <div class="metric-value" id="stat-site">-</div>
+          <div class="metric-sub">Каталоги / портфолио</div>
         </div>
 
-        <div class="glass-card">
-          <div class="glass-card-title">
-            <span>Карусель 4-местная с рулем</span>
-            <span class="price-tag">49 900 ₽</span>
+        <div class="metric-card" id="metric-deals" onclick="setQuickFilter('deals')">
+          <div class="metric-top">
+            <span class="metric-label">В работе / Сделки</span>
+            <span class="metric-icon">🤝</span>
           </div>
-          <div class="glass-card-specs">
-            <div class="spec-item"><span>Габариты:</span><span>1900 × 1900 × 1100 мм</span></div>
-            <div class="spec-item"><span>Опора:</span><span>Закрытый подшипниковый узел</span></div>
-          </div>
-        </div>
-
-        <div class="glass-card">
-          <div class="glass-card-title">
-            <span>Горка зимняя всесезонная</span>
-            <span class="price-tag">от 125 000 ₽</span>
-          </div>
-          <div class="glass-card-specs">
-            <div class="spec-item"><span>Исполнение:</span><span>Металл или лиственница</span></div>
-            <div class="spec-item"><span>Сертификация:</span><span>ТР ЕАЭС 042/2017</span></div>
-          </div>
-        </div>
-
-        <div class="glass-card">
-          <div class="glass-card-title">
-            <span>Скамейка детская «МЧС Пожарная»</span>
-            <span class="price-tag">21 000 ₽</span>
-          </div>
-          <div class="glass-card-specs">
-            <div class="spec-item"><span>Габариты:</span><span>1555 × 625 × 935 мм</span></div>
-            <div class="spec-item"><span>Основание:</span><span>Стальной профиль с порошковой окраской</span></div>
-          </div>
+          <div class="metric-value" id="stat-deals">-</div>
+          <div class="metric-sub">КП и договора</div>
         </div>
       </section>
 
-      <!-- ЭКРАН 1: Спорт & Воркаут -->
-      <section class="screen" id="screen-1">
-        <div class="delivery-banner">
-          <div class="delivery-icon">🏆</div>
-          <div class="delivery-text">
-            <h3>Спортивные комплексы & Ограждения</h3>
-            <p>Соответствие нормам безопасности и ГОСТам</p>
-          </div>
+      <!-- Фильтры и живой поиск -->
+      <section class="filters-section">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input
+            type="text"
+            id="search-input"
+            class="search-input"
+            placeholder="Поиск по названию, телефону, сайту, региону..."
+            oninput="handleSearchInput()"
+          >
+          <button id="search-clear-btn" class="search-clear" onclick="clearSearch()">✕</button>
         </div>
 
-        <div class="glass-card">
-          <div class="glass-card-title">
-            <span>Гимнастический комплекс</span>
-            <span class="price-tag">16 800 ₽</span>
-          </div>
-          <div class="glass-card-specs">
-            <div class="spec-item"><span>Габариты:</span><span>2300 × 400 × 500 мм</span></div>
-            <div class="spec-item"><span>Нагрузка:</span><span>до 150 кг</span></div>
-          </div>
+        <div class="filter-row">
+          <!-- Селектор региона -->
+          <select id="region-select" class="filter-select" onchange="applyFilters()">
+            <option value="">📍 Все регионы</option>
+          </select>
+
+          <!-- Селектор статуса -->
+          <select id="status-select" class="filter-select" onchange="applyFilters()">
+            <option value="">📌 Все статусы</option>
+            <option value="new">🆕 Новый</option>
+            <option value="price_sent">📩 Прайс отправлен</option>
+            <option value="called">📞 Созвонились</option>
+            <option value="offer_sent">📝 КП выставлено</option>
+            <option value="deal">🤝 Сделка закрыта</option>
+            <option value="rejected">❌ Отказ</option>
+          </select>
+
+          <!-- Селектор контактов -->
+          <select id="contacts-select" class="filter-select" onchange="applyFilters()">
+            <option value="">📇 Все контакты</option>
+            <option value="phone">📞 Только с телефоном</option>
+            <option value="website">🌐 Только с сайтом</option>
+          </select>
         </div>
 
-        <div class="glass-card">
-          <div class="glass-card-title">
-            <span>Рукоход «Круг» радиусный</span>
-            <span class="price-tag">45 000 ₽</span>
-          </div>
-          <div class="glass-card-specs">
-            <div class="spec-item"><span>Габариты:</span><span>1800 × 2400 × 2300 мм</span></div>
-            <div class="spec-item"><span>Стойки:</span><span>Труба Ø89 мм толстостенная</span></div>
-          </div>
-        </div>
-
-        <div class="glass-card">
-          <div class="glass-card-title">
-            <span>Стойка баскетбольная уличная</span>
-            <span class="price-tag">19 000 ₽</span>
-          </div>
-          <div class="glass-card-specs">
-            <div class="spec-item"><span>Щит:</span><span>Влагостойкий монолитный поликарбонат</span></div>
-            <div class="spec-item"><span>Антивандальность:</span><span>Усиленный вынос и корзина с цепью</span></div>
-          </div>
-        </div>
-
-        <div class="glass-card">
-          <div class="glass-card-title">
-            <span>Хоккейные / Мини-футбольные ворота</span>
-            <span class="price-tag">23 000 ₽</span>
-          </div>
-          <div class="glass-card-specs">
-            <div class="spec-item"><span>Конструкция:</span><span>Сварная стальная рама</span></div>
-            <div class="spec-item"><span>Покрытие:</span><span>Цинкосодержащий грунт + порошок</span></div>
-          </div>
+        <div class="filter-status-bar">
+          <span id="filtered-count-label">Загрузка подрядчиков...</span>
+          <button class="reset-btn" onclick="resetAllFilters()">Сбросить фильтры</button>
         </div>
       </section>
 
-      <!-- ЭКРАН 2: Прайс & Заказ -->
-      <section class="screen" id="screen-2">
-        <div class="glass-card">
-          <div class="glass-card-title">
-            <span>📋 Оптовые условия B2B</span>
-          </div>
-          <div class="glass-card-specs" style="margin-top: 10px;">
-            <div class="spec-item"><span>🚚 Доставка:</span><span>За счет поставщика</span></div>
-            <div class="spec-item"><span>📄 Документы:</span><span>Паспорта изделий, сертификаты 042</span></div>
-            <div class="spec-item"><span>⏱ Срок отгрузки:</span><span>От 3 до 14 рабочих дней</span></div>
-            <div class="spec-item"><span>🛡 Гарантия:</span><span>до 36 месяцев</span></div>
-          </div>
-
-          <button class="btn-action" onclick="orderInBot()">
-            📩 Оставить заявку в боте
-          </button>
-        </div>
-
-        <div class="glass-card">
-          <div class="glass-card-title">
-            <span>💼 Для кого наши поставки?</span>
-          </div>
-          <div class="glass-card-specs">
-            <p style="margin-top: 8px; line-height: 1.5;">
-              Мы работаем с подрядчиками по госзакупкам (44-ФЗ, 223-ФЗ), застройщиками жилых комплексов, управляющими компаниями и ландшафтными бюро.
-            </p>
-          </div>
-        </div>
-      </section>
+      <!-- Список подрядчиков -->
+      <div id="leads-list" class="leads-container">
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+        <div class="skeleton-card"></div>
+      </div>
     </main>
 
-    <!-- ТУЛБАР LIQUID GLASS (iOS 27 Fluid Physics Tabbar) -->
-    <div class="dock">
-      <div class="bar" id="bar" style="--x:0;--tx:0;--sx:1;--sy:1;--p:0">
-        <div class="matte base"></div>
-        <div class="fil" id="fil"></div>
-        <div class="solid"></div>
-        <div class="thumb">
-          <div class="lens">
-            <div class="tabs">
-              <!-- Вкладка 0: Площадки -->
-              <div class="tab">
-                <div class="ico">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 21h18M5 21V7l7-4 7 4v14M10 9a2 2 0 1 0 4 0 2 2 0 0 0-4 0M9 21v-4a3 3 0 0 1 6 0v4"/>
-                  </svg>
-                </div>
-                <span>МАФы</span>
-              </div>
-              <!-- Вкладка 1: Спорт -->
-              <div class="tab">
-                <div class="ico">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24M14.83 14.83l4.24 4.24M14.83 9.17l4.24-4.24M4.93 19.07l4.24-4.24"/>
-                  </svg>
-                </div>
-                <span>Спорт</span>
-              </div>
-              <!-- Вкладка 2: Прайс -->
-              <div class="tab">
-                <div class="ico">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
-                  </svg>
-                </div>
-                <span>Прайс</span>
-              </div>
-            </div>
-          </div>
+    <!-- ВКЛАДКА 2: КАТАЛОГ МАФ И ОБОРУДОВАНИЯ -->
+    <section id="tab-catalog" class="tab-content">
+      <div class="catalog-card">
+        <div class="catalog-title">
+          <span>Качалка-балансир «Малая»</span>
+          <span class="catalog-price">18 000 ₽</span>
         </div>
-
-        <div class="tabs">
-          <button class="tab on" type="button" data-index="0">
-            <div class="ico">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 21h18M5 21V7l7-4 7 4v14M10 9a2 2 0 1 0 4 0 2 2 0 0 0-4 0M9 21v-4a3 3 0 0 1 6 0v4"/>
-              </svg>
-            </div>
-            <span>МАФы</span>
-          </button>
-          <button class="tab" type="button" data-index="1">
-            <div class="ico">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24M14.83 14.83l4.24 4.24M14.83 9.17l4.24-4.24M4.93 19.07l4.24-4.24"/>
-              </svg>
-            </div>
-            <span>Спорт</span>
-          </button>
-          <button class="tab" type="button" data-index="2">
-            <div class="ico">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
-              </svg>
-            </div>
-            <span>Прайс</span>
-          </button>
+        <div class="catalog-specs">
+          <p>• Размеры: 280 × 100 × 40 см</p>
+          <p>• Материал: Брус хвойных пород, влагостойкая фанера ФСФ</p>
+          <p>• Покрытие: Двухкомпонентная износостойкая эмаль</p>
+          <p>• Сертификат: ТР ЕАЭС 042/2017</p>
         </div>
       </div>
-    </div>
+
+      <div class="catalog-card">
+        <div class="catalog-title">
+          <span>Качалка на пружине «Джип»</span>
+          <span class="catalog-price">39 000 ₽</span>
+        </div>
+        <div class="catalog-specs">
+          <p>• Механизм: Усиленная пружина ГОСТ с антикоррозийной обработкой</p>
+          <p>• Для детей: от 2 до 8 лет</p>
+          <p>• Антивандальное усиление и закрытые крепления</p>
+        </div>
+      </div>
+
+      <div class="catalog-card">
+        <div class="catalog-title">
+          <span>Карусель 4-местная с вращающимся рулем</span>
+          <span class="catalog-price">49 900 ₽</span>
+        </div>
+        <div class="catalog-specs">
+          <p>• Габариты: 1900 × 1900 × 1100 мм</p>
+          <p>• Опора: Закрытый подшипниковый узел высокой грузоподъемности</p>
+          <p>• Пол: Рифленая ламинированная противоскользящая фанера</p>
+        </div>
+      </div>
+
+      <div class="catalog-card">
+        <div class="catalog-title">
+          <span>Гимнастический комплекс воркаут</span>
+          <span class="catalog-price">16 800 ₽</span>
+        </div>
+        <div class="catalog-specs">
+          <p>• Стойки: Толстостенная стальная труба с полимерной окраской</p>
+          <p>• Нагрузка: до 150 кг на каждый элемент</p>
+          <p>• Перекладины: Турник, брусья, шведская стенка</p>
+        </div>
+      </div>
+
+      <div class="catalog-card">
+        <div class="catalog-title">
+          <span>Скамейка парковая «Комфорт»</span>
+          <span class="catalog-price">21 000 ₽</span>
+        </div>
+        <div class="catalog-specs">
+          <p>• Каркас: Чугунное литье или стальной усиленный профиль</p>
+          <p>• Настил: Брус лиственницы / сосны камерной сушки</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ВКЛАДКА 3: АНАЛИТИКА ВОРОНКИ -->
+    <section id="tab-analytics" class="tab-content">
+      <div class="catalog-card">
+        <h3 style="margin-bottom: 12px; font-size: 16px;">📊 Распределение подрядчиков по статусам</h3>
+        <div id="analytics-status-bars" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Заполняется динамически -->
+        </div>
+      </div>
+      <div class="catalog-card">
+        <h3 style="margin-bottom: 12px; font-size: 16px;">🚚 B2B Условия поставок</h3>
+        <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+          • Доставка оборудования за счет поставщика по всей территории РФ<br>
+          • Полный пакет паспортов изделий и сертификатов ГОСТ / ТР ЕАЭС 042<br>
+          • Индивидуальные агентские и дилерские скидки для постоянных подрядчиков<br>
+          • Отгрузка со склада от 3 до 14 рабочих дней
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Нижняя панель навигации -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="switchTab('leads')">
+      <span>📇</span> База CRM
+    </button>
+    <button class="nav-btn" onclick="switchTab('catalog')">
+      <span>📦</span> Каталог МАФ
+    </button>
+    <button class="nav-btn" onclick="switchTab('analytics')">
+      <span>📊</span> Воронка
+    </button>
+  </nav>
+
+  <!-- Всплывающий тост -->
+  <div id="toast" class="toast">
+    <span id="toast-icon">✅</span>
+    <span id="toast-text">Действие выполнено</span>
   </div>
 
   <script>
     // Инициализация Telegram WebApp
-    if (window.Telegram && window.Telegram.WebApp) {
-      Telegram.WebApp.ready();
-      Telegram.WebApp.expand();
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      try {
+        if (tg.setHeaderColor) tg.setHeaderColor('#0b0d14');
+        if (tg.setBackgroundColor) tg.setBackgroundColor('#0b0d14');
+      } catch (e) {}
     }
 
-    function orderInBot() {
-      if (window.Telegram && window.Telegram.WebApp) {
-        Telegram.WebApp.close();
-      } else {
-        alert("Пожалуйста, вернитесь в чат с ботом и нажмите кнопку «Оставить заявку»!");
+    // Состояние приложения
+    let allLeads = [];
+    let globalStats = null;
+    let availableRegions = [];
+    let searchDebounceTimer = null;
+    let currentFilter = {
+      search: '',
+      region: '',
+      status: '',
+      has_phone: null,
+      has_website: null,
+      quick: 'all'
+    };
+
+    // Тактильный отклик Telegram
+    function haptic(type = 'medium') {
+      try {
+        if (tg?.HapticFeedback) {
+          if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
+          else if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
+          else tg.HapticFeedback.impactOccurred(type);
+        }
+      } catch (e) {}
+    }
+
+    // Всплывающее уведомление
+    function showToast(text, icon = '✅') {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toast-text');
+      const toastIcon = document.getElementById('toast-icon');
+      toastText.textContent = text;
+      toastIcon.textContent = icon;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2600);
+    }
+
+    // Формирование заголовков запроса
+    function getApiHeaders() {
+      const headers = { 'Content-Type': 'application/json' };
+      if (tg?.initData) {
+        headers['X-Telegram-Init-Data'] = tg.initData;
+      }
+      return headers;
+    }
+
+    // URL с учетом параметров страницы
+    function getApiUrl(endpoint) {
+      const url = new URL(endpoint, window.location.origin);
+      const urlParams = new URLSearchParams(window.location.search);
+      // Если открыто в десктопном браузере администратором с query
+      if (urlParams.has('admin_id')) {
+        url.searchParams.set('admin_id', urlParams.get('admin_id'));
+      }
+      if (urlParams.has('token')) {
+        url.searchParams.set('token', urlParams.get('token'));
+      }
+      return url.toString();
+    }
+
+    // Загрузка данных
+    async function fetchLeads() {
+      try {
+        const url = new URL('/api/leads', window.location.origin);
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('admin_id')) url.searchParams.set('admin_id', urlParams.get('admin_id'));
+        if (urlParams.has('token')) url.searchParams.set('token', urlParams.get('token'));
+        url.searchParams.set('limit', '300');
+
+        const res = await fetch(url.toString(), {
+          headers: getApiHeaders()
+        });
+
+        if (!res.ok) {
+          throw new Error('Ошибка ' + res.status);
+        }
+
+        const data = await res.json();
+        if (data.success) {
+          allLeads = data.leads || [];
+          globalStats = data.stats || {};
+          availableRegions = data.regions || [];
+
+          updateStatsUI(globalStats);
+          populateRegionsDropdown(availableRegions);
+          renderLeads();
+          renderAnalytics(globalStats);
+        }
+      } catch (err) {
+        console.error('Ошибка загрузки лидов:', err);
+        document.getElementById('leads-list').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">⚠️</div>
+            <h3>Не удалось загрузить данные</h3>
+            <p style="margin-top: 6px; font-size: 13px;">${err.message}</p>
+            <button class="reset-btn" style="margin-top: 12px; font-size: 14px;" onclick="fetchLeads()">Повторить попытку</button>
+          </div>
+        `;
       }
     }
 
-    // Логика переключения экранов
-    function switchScreen(index) {
-      document.querySelectorAll('.screen').forEach((scr, idx) => {
-        scr.classList.toggle('active', idx === index);
+    // Обновление метрик
+    function updateStatsUI(stats) {
+      if (!stats) return;
+      document.getElementById('stat-total').textContent = stats.total_count || 0;
+      document.getElementById('stat-phone').textContent = stats.with_phone || 0;
+      document.getElementById('stat-site').textContent = stats.with_website || 0;
+
+      const deals = (stats.by_status?.deal || 0) + (stats.by_status?.offer_sent || 0) + (stats.by_status?.price_sent || 0);
+      document.getElementById('stat-deals').textContent = deals;
+    }
+
+    // Заполнение выпадающего списка регионов
+    function populateRegionsDropdown(regions) {
+      const select = document.getElementById('region-select');
+      const currentValue = select.value;
+      select.innerHTML = '<option value="">📍 Все регионы</option>';
+
+      // Собираем уникальные регионы из лидов и списка настроек
+      const uniqueRegions = new Set(regions);
+      allLeads.forEach(l => {
+        if (l.region) uniqueRegions.add(l.region);
+      });
+
+      Array.from(uniqueRegions).sort().forEach(reg => {
+        if (!reg) return;
+        const opt = document.createElement('option');
+        opt.value = reg;
+        opt.textContent = '📍 ' + reg;
+        select.appendChild(opt);
+      });
+
+      if (currentValue) select.value = currentValue;
+    }
+
+    // Быстрый фильтр по карточкам метрик
+    function setQuickFilter(type) {
+      haptic('light');
+      currentFilter.quick = type;
+
+      document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('active-filter'));
+      if (type === 'all') {
+        currentFilter.has_phone = null;
+        currentFilter.has_website = null;
+        currentFilter.status = '';
+        document.getElementById('contacts-select').value = '';
+        document.getElementById('status-select').value = '';
+        document.getElementById('metric-all').classList.add('active-filter');
+      } else if (type === 'has_phone') {
+        currentFilter.has_phone = 1;
+        currentFilter.has_website = null;
+        document.getElementById('contacts-select').value = 'phone';
+        document.getElementById('metric-phone').classList.add('active-filter');
+      } else if (type === 'has_website') {
+        currentFilter.has_website = 1;
+        currentFilter.has_phone = null;
+        document.getElementById('contacts-select').value = 'website';
+        document.getElementById('metric-site').classList.add('active-filter');
+      } else if (type === 'deals') {
+        currentFilter.status = 'deals';
+        document.getElementById('metric-deals').classList.add('active-filter');
+      }
+      renderLeads();
+    }
+
+    // Обработка поисковой строки
+    function handleSearchInput() {
+      const input = document.getElementById('search-input');
+      const clearBtn = document.getElementById('search-clear-btn');
+      clearBtn.style.display = input.value ? 'block' : 'none';
+
+      clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        currentFilter.search = input.value.trim().toLowerCase();
+        renderLeads();
+      }, 150);
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('search-input');
+      input.value = '';
+      document.getElementById('search-clear-btn').style.display = 'none';
+      currentFilter.search = '';
+      renderLeads();
+      input.focus();
+    }
+
+    // Применение фильтров
+    function applyFilters() {
+      haptic('light');
+      currentFilter.region = document.getElementById('region-select').value;
+      currentFilter.status = document.getElementById('status-select').value;
+
+      const contactsVal = document.getElementById('contacts-select').value;
+      if (contactsVal === 'phone') {
+        currentFilter.has_phone = 1;
+        currentFilter.has_website = null;
+      } else if (contactsVal === 'website') {
+        currentFilter.has_website = 1;
+        currentFilter.has_phone = null;
+      } else {
+        currentFilter.has_phone = null;
+        currentFilter.has_website = null;
+      }
+
+      renderLeads();
+    }
+
+    function resetAllFilters() {
+      haptic('light');
+      document.getElementById('search-input').value = '';
+      document.getElementById('search-clear-btn').style.display = 'none';
+      document.getElementById('region-select').value = '';
+      document.getElementById('status-select').value = '';
+      document.getElementById('contacts-select').value = '';
+
+      currentFilter = {
+        search: '',
+        region: '',
+        status: '',
+        has_phone: null,
+        has_website: null,
+        quick: 'all'
+      };
+
+      document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('active-filter'));
+      document.getElementById('metric-all').classList.add('active-filter');
+      renderLeads();
+      showToast('Фильтры сброшены', '🧹');
+    }
+
+    // Отрисовка лидов
+    function renderLeads() {
+      const container = document.getElementById('leads-list');
+      const countLabel = document.getElementById('filtered-count-label');
+
+      let filtered = allLeads.filter(lead => {
+        // Поиск по ключевым словам
+        if (currentFilter.search) {
+          const s = currentFilter.search;
+          const matchTitle = (lead.title || '').toLowerCase().includes(s);
+          const matchPhone = (lead.phone || '').toLowerCase().includes(s);
+          const matchWebsite = (lead.website || '').toLowerCase().includes(s);
+          const matchRegion = (lead.region || '').toLowerCase().includes(s);
+          const matchNotes = (lead.notes || '').toLowerCase().includes(s);
+          const matchCats = (lead.categories || '').toLowerCase().includes(s);
+          if (!matchTitle && !matchPhone && !matchWebsite && !matchRegion && !matchNotes && !matchCats) {
+            return false;
+          }
+        }
+
+        // Фильтр по региону
+        if (currentFilter.region && lead.region !== currentFilter.region) {
+          return false;
+        }
+
+        // Фильтр по статусу
+        if (currentFilter.status) {
+          if (currentFilter.status === 'deals') {
+            const dealStatuses = ['price_sent', 'offer_sent', 'deal'];
+            if (!dealStatuses.includes(lead.status)) return false;
+          } else if (lead.status !== currentFilter.status) {
+            return false;
+          }
+        }
+
+        // Фильтр по телефону
+        if (currentFilter.has_phone === 1 && !lead.phone) {
+          return false;
+        }
+
+        // Фильтр по сайту
+        if (currentFilter.has_website === 1 && !lead.website) {
+          return false;
+        }
+
+        return true;
+      });
+
+      countLabel.textContent = `Найдено: ${filtered.length} из ${allLeads.length} подрядчиков`;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">🔍</div>
+            <h3>Ничего не найдено</h3>
+            <p style="margin-top: 6px; font-size: 13px;">Попробуйте изменить поисковый запрос или сбросить фильтры</p>
+            <button class="reset-btn" style="margin-top: 12px; font-size: 14px;" onclick="resetAllFilters()">Сбросить фильтры</button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(lead => createLeadCardHTML(lead)).join('');
+    }
+
+    // Создание HTML карточки подрядчика
+    function createLeadCardHTML(lead) {
+      const sourceClass = lead.source?.includes('serper') || lead.source?.includes('google')
+        ? 'source-serper'
+        : (lead.source?.includes('catalog') ? 'source-catalog' : 'source-bot');
+
+      const sourceLabel = lead.source?.includes('serper')
+        ? 'Google Поиск'
+        : (lead.source?.includes('catalog') ? 'Каталог' : 'Заявка');
+
+      const statusMap = {
+        new: '🆕 Новый',
+        price_sent: '📩 Прайс отправлен',
+        called: '📞 Созвонились',
+        offer_sent: '📝 КП выставлено',
+        deal: '🤝 Сделка закрыта',
+        rejected: '❌ Отказ'
+      };
+
+      const categories = (lead.categories || '')
+        .split(',')
+        .map(c => c.trim())
+        .filter(c => c)
+        .slice(0, 4);
+
+      const phoneBtn = lead.phone ? `
+        <div class="contact-btn phone-btn">
+          <a href="tel:${escapeHtml(lead.phone)}" style="color: inherit; text-decoration: none; display: flex; align-items: center; gap: 6px;">
+            <span>📞</span> <span>${escapeHtml(lead.phone)}</span>
+          </a>
+          <button class="copy-phone-btn" onclick="copyPhone('${escapeHtml(lead.phone)}', this)">Скопировать</button>
+        </div>
+      ` : `
+        <div class="contact-btn" style="background: rgba(255,255,255,0.03); color: var(--text-muted);">
+          <span>📞 Нет телефона</span>
+        </div>
+      `;
+
+      let websiteClean = lead.website || '';
+      if (websiteClean && !websiteClean.startsWith('http')) {
+        websiteClean = 'https://' + websiteClean;
+      }
+
+      const websiteBtn = lead.website ? `
+        <a href="${escapeHtml(websiteClean)}" target="_blank" rel="noopener" class="contact-btn website-btn">
+          <span class="website-text">🌐 ${escapeHtml(lead.website.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</span>
+          <span style="font-size: 11px;">↗</span>
+        </a>
+      ` : `
+        <div class="contact-btn" style="background: rgba(255,255,255,0.03); color: var(--text-muted);">
+          <span>🌐 Нет сайта</span>
+        </div>
+      `;
+
+      return `
+        <article class="lead-card" id="lead-${lead.id}">
+          <div class="lead-header">
+            <h2 class="lead-title">${escapeHtml(lead.title || 'Подрядчик #' + lead.id)}</h2>
+            <span class="source-badge ${sourceClass}">${sourceLabel}</span>
+          </div>
+
+          <div class="lead-meta">
+            <span class="region-tag">📍 ${escapeHtml(lead.region || 'РФ')}</span>
+            <div class="category-chips">
+              ${categories.map(cat => `<span class="category-chip">${escapeHtml(cat)}</span>`).join('')}
+            </div>
+          </div>
+
+          <div class="lead-contacts">
+            ${phoneBtn}
+            ${websiteBtn}
+          </div>
+
+          <div class="lead-actions">
+            <div class="status-select-wrapper">
+              <select
+                class="status-select status-${lead.status || 'new'}"
+                onchange="updateLeadStatus(${lead.id}, this.value, this)"
+              >
+                <option value="new" ${lead.status === 'new' ? 'selected' : ''}>🆕 Новый</option>
+                <option value="price_sent" ${lead.status === 'price_sent' ? 'selected' : ''}>📩 Прайс отправлен</option>
+                <option value="called" ${lead.status === 'called' ? 'selected' : ''}>📞 Созвонились</option>
+                <option value="offer_sent" ${lead.status === 'offer_sent' ? 'selected' : ''}>📝 КП выставлено</option>
+                <option value="deal" ${lead.status === 'deal' ? 'selected' : ''}>🤝 Сделка закрыта</option>
+                <option value="rejected" ${lead.status === 'rejected' ? 'selected' : ''}>❌ Отказ</option>
+              </select>
+            </div>
+
+            <div class="notes-box">
+              <input
+                type="text"
+                id="notes-input-${lead.id}"
+                class="notes-input"
+                placeholder="Заметка по подрядчику..."
+                value="${escapeHtml(lead.notes || '')}"
+                onblur="saveLeadNotes(${lead.id})"
+                onkeydown="if(event.key === 'Enter') saveLeadNotes(${lead.id})"
+              >
+              <button class="save-notes-btn" onclick="saveLeadNotes(${lead.id})">💾</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    // Скопировать номер телефона
+    function copyPhone(phone, btn) {
+      haptic('light');
+      navigator.clipboard.writeText(phone).then(() => {
+        haptic('success');
+        const origText = btn.textContent;
+        btn.textContent = 'Скопировано! ✅';
+        showToast(`Номер ${phone} скопирован`, '📋');
+        setTimeout(() => {
+          btn.textContent = origText;
+        }, 1800);
+      }).catch(() => {
+        showToast('Не удалось скопировать', '⚠️');
       });
     }
 
-    // ========================================================
-    // ФИЗИКА LIQUID GLASS ДЛЯ ТУЛБАРА
-    // ========================================================
-    const bar = document.getElementById('bar');
-    const fil = document.getElementById('fil');
-    const tabs = Array.from(bar.querySelectorAll('.tabs button.tab'));
+    // Обновление статуса подрядчика
+    async function updateLeadStatus(leadId, newStatus, selectElem) {
+      haptic('medium');
+      const lead = allLeads.find(l => l.id === leadId);
+      const oldStatus = lead ? lead.status : 'new';
 
-    let cur = 0, target = 0, vel = 0, down = false, press = 0, pvel = 0;
-    let lag = 0, lagv = 0, dirv = 1, wasMoving = false, mv = 0, mvv = 0, zz = 0, zzv = 0;
-    let startX = 0, startCur = 0, pid = null;
+      // Оптимистичное обновление класса
+      selectElem.className = `status-select status-${newStatus}`;
 
-    const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
+      try {
+        const url = new URL(`/api/leads/${leadId}/status`, window.location.origin);
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('admin_id')) url.searchParams.set('admin_id', urlParams.get('admin_id'));
+        if (urlParams.has('token')) url.searchParams.set('token', urlParams.get('token'));
 
-    function setActive(idx) {
-      tabs.forEach((t, i) => t.classList.toggle('on', i === idx));
-      switchScreen(idx);
+        const res = await fetch(url.toString(), {
+          method: 'POST',
+          headers: getApiHeaders(),
+          body: JSON.stringify({
+            status: newStatus,
+            notes: document.getElementById(`notes-input-${leadId}`)?.value || ''
+          })
+        });
+
+        if (!res.ok) throw new Error('Ошибка ' + res.status);
+
+        const data = await res.json();
+        if (data.success) {
+          if (lead) lead.status = newStatus;
+          haptic('success');
+          showToast(`Статус обновлен на: ${selectElem.options[selectElem.selectedIndex].text}`, '✅');
+          recalculateLocalStats();
+        }
+      } catch (err) {
+        console.error('Ошибка сохранения статуса:', err);
+        haptic('error');
+        showToast('Ошибка сохранения статуса', '❌');
+        selectElem.value = oldStatus;
+        selectElem.className = `status-select status-${oldStatus}`;
+      }
     }
 
-    const pos = e => {
-      const r = bar.getBoundingClientRect();
-      return (e.clientX - r.left) / r.width * 843;
-    };
+    // Сохранение заметки
+    async function saveLeadNotes(leadId) {
+      const input = document.getElementById(`notes-input-${leadId}`);
+      if (!input) return;
+      const notesVal = input.value.trim();
+      const lead = allLeads.find(l => l.id === leadId);
+      if (lead && lead.notes === notesVal) return; // ничего не изменилось
 
-    bar.addEventListener('pointerdown', e => {
-      down = true; pid = e.pointerId; bar.setPointerCapture(pid);
-      startX = pos(e); startCur = cur; bar.classList.add('down');
-    });
+      try {
+        const url = new URL(`/api/leads/${leadId}/status`, window.location.origin);
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('admin_id')) url.searchParams.set('admin_id', urlParams.get('admin_id'));
+        if (urlParams.has('token')) url.searchParams.set('token', urlParams.get('token'));
 
-    window.addEventListener('pointermove', e => {
-      if (!down || e.pointerId !== pid) return;
-      const x = pos(e), dx = x - startX;
-      target = clamp(startCur + dx / 273, 0, 2);
-    });
+        const res = await fetch(url.toString(), {
+          method: 'POST',
+          headers: getApiHeaders(),
+          body: JSON.stringify({
+            status: lead ? lead.status : 'new',
+            notes: notesVal
+          })
+        });
 
-    const end = e => {
-      if (!down || (e && e.pointerId !== pid)) return;
-      down = false; bar.classList.remove('down');
-      target = clamp(Math.round(target), 0, 2);
-      setActive(target);
-    };
-
-    window.addEventListener('pointerup', end);
-    window.addEventListener('pointercancel', end);
-
-    tabs.forEach((el, n) => el.addEventListener('click', e => {
-      target = n;
-      setActive(n);
-    }));
-
-    let last = performance.now();
-    (function loop(now) {
-      const dt = Math.min(.05, (now - last) / 1000 || .016);
-      last = now;
-
-      const k = down ? 210 : 230, c = down ? 22 : 1.6 * Math.sqrt(230), pk = 200, pc = 11;
-      const n = 4, h = dt / n;
-      for (let i = 0; i < n; i++) {
-        vel += (-k * (cur - target) - c * vel) * h;
-        cur += vel * h;
-        pvel += (-pk * (press - (down ? 1 : 0)) - pc * pvel) * h;
-        press += pvel * h;
-        lagv += (-180 * (lag - cur) - 2 * Math.sqrt(180) * lagv) * h;
-        lag += lagv * h;
-      }
-
-      const moving = Math.abs(cur - target) > .1 || Math.abs(vel) > .9;
-      if (wasMoving && !moving && !down) zzv -= 2.4;
-      if (!wasMoving && moving) zzv += 1.4;
-      wasMoving = moving;
-
-      const mk = moving ? 380 : 900, mc = 2 * Math.sqrt(mk);
-      for (let i = 0; i < 4; i++) {
-        mvv += (-mk * (mv - (moving ? 1 : 0)) - mc * mvv) * (dt / 4);
-        mv += mvv * (dt / 4);
-      }
-      mv = clamp(mv, -.2, 1.6);
-
-      const zt = .02 * clamp(Math.abs(vel) / 6, 0, 1) + .04 * press;
-      for (let i = 0; i < 4; i++) {
-        zzv += (-170 * (zz - zt) - 1.2 * Math.sqrt(170) * zzv) * (dt / 4);
-        zz += zzv * (dt / 4);
-      }
-      zz = clamp(zz, -.3, .3);
-
-      const g = (mv < 0 && press < .02) ? mv : Math.max(mv, press);
-      const st = clamp(Math.abs(vel) * .055, 0, .26) * (down ? 1 : .6);
-      const s = 1 + .05 * g + .06 * press, sy = 1 + .24 * g + .16 * press;
-
-      bar.style.setProperty('--x', cur.toFixed(4));
-
-      const sm = (v, m, K) => v <= m - K ? v : m - K * Math.exp(-(v - (m - K)) / K);
-      const cx = 12 + cur * 273 + 136.5;
-      const horiz = w => [-sm(-(cx - w / 2), 48, 30), sm(cx + w / 2, 891, 30)];
-      if (Math.abs(vel) > .6) dirv = Math.sign(vel);
-      const jel = clamp((cur - lag) * dirv, -.55, .55);
-      let sxv = s * (1 + st) * (1 + .48 * jel) * (1 - .45 * zz), syv = sy * (1 + zz);
-      sxv = Math.min(sxv, 1.38);
-
-      let [Lc, Rc] = horiz(252 * sxv);
-      const cmp = Math.max(0, 1 - (Rc - Lc) / (252 * sxv));
-      vel *= 1 - Math.min(.3, cmp * 4 * dt);
-      syv *= 1 + .45 * cmp;
-      const h0 = 165 * syv, h1 = sm(h0, 214, 14);
-      sxv *= Math.sqrt(h0 / h1);
-      syv = h1 / 165;
-      [Lc, Rc] = horiz(252 * sxv);
-
-      bar.style.setProperty('--tx', ((Lc + Rc) / 2 - cx).toFixed(3));
-      bar.style.setProperty('--sx', ((Rc - Lc) / 252).toFixed(4));
-      bar.style.setProperty('--sy', syv.toFixed(4));
-      bar.style.setProperty('--p', clamp(g, 0, 1).toFixed(3));
-
-      const U = bar.offsetWidth / 843, r = 82.5 * syv, cy = 95, ex = r - cy;
-      let d = '';
-      if (ex > 1.5) {
-        const OX = 60, OY = 40, f = (x, y) => ((x + OX) * U).toFixed(1) + ' ' + ((y + OY) * U).toFixed(1);
-        const FLAT0 = 95, FLAT1 = 748;
-        const phi0 = Math.asin(cy / r), hc = Math.sqrt(r * r - cy * cy);
-        const build = (k, side, vert) => {
-          const phi1 = Math.asin(Math.min(1, (cy + k * ex) / r)), cc = side > 0 ? Rc - r : Lc + r;
-          const px = cc + side * r * Math.cos(phi1), py = -(r * Math.sin(phi1) - cy);
-          const tt = -py / Math.cos(phi1), Cx = px + side * tt * Math.sin(phi1), P0x = Cx + side * Math.abs(Cx - px) * 2;
-          const xi = cc + side * hc;
-          if (side > 0 ? P0x > FLAT1 : P0x < FLAT0) return null;
-          const Y = y => vert > 0 ? y : 190 - y;
-          let pth = `M${f(xi, Y(0))} L${f(P0x, Y(0))} Q${f(Cx, Y(0))} ${f(px, Y(py))}`;
-          for (let a = 1; a <= 8; a++) {
-            const ph = phi1 + (phi0 - phi1) * a / 8;
-            pth += ` L${f(cc + side * r * Math.cos(ph), Y(-(r * Math.sin(ph) - cy)))}`;
-          }
-          return pth + ' Z';
-        };
-        for (const side of [1, -1]) {
-          for (const vert of [1, -1]) {
-            for (const k of [.95, .65, .4]) {
-              const q = build(k, side, vert);
-              if (q) { d += q; break; }
-            }
-          }
+        if (res.ok) {
+          if (lead) lead.notes = notesVal;
+          haptic('light');
+          showToast('Заметка сохранена', '📝');
         }
+      } catch (err) {
+        console.error('Ошибка сохранения заметки:', err);
       }
-      fil.style.clipPath = fil.style.webkitClipPath = d ? `path('${d}')` : 'path("M0 0 Z")';
+    }
 
-      requestAnimationFrame(loop);
-    })(performance.now());
+    // Пересчет локальных метрик без перезапроса
+    function recalculateLocalStats() {
+      const total = allLeads.length;
+      const withPhone = allLeads.filter(l => l.phone).length;
+      const withWebsite = allLeads.filter(l => l.website).length;
+      const deals = allLeads.filter(l => ['price_sent', 'offer_sent', 'deal'].includes(l.status)).length;
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-phone').textContent = withPhone;
+      document.getElementById('stat-site').textContent = withWebsite;
+      document.getElementById('stat-deals').textContent = deals;
+    }
+
+    // Отрисовка аналитики
+    function renderAnalytics(stats) {
+      const container = document.getElementById('analytics-status-bars');
+      if (!container || !stats || !stats.by_status) return;
+
+      const labels = {
+        new: { name: 'Новые', color: '#38bdf8' },
+        price_sent: { name: 'Прайс отправлен', color: '#818cf8' },
+        called: { name: 'Созвонились', color: '#fbbf24' },
+        offer_sent: { name: 'КП выставлено', color: '#f97316' },
+        deal: { name: 'Сделка закрыта', color: '#34d399' },
+        rejected: { name: 'Отказ', color: '#f87171' }
+      };
+
+      const total = stats.total_count || 1;
+      let html = '';
+
+      for (const [st, meta] of Object.entries(labels)) {
+        const count = stats.by_status[st] || 0;
+        const pct = Math.round((count / total) * 100);
+        html += `
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+              <span>${meta.name}</span>
+              <span style="font-weight: 700;">${count} шт. (${pct}%)</span>
+            </div>
+            <div style="background: rgba(255,255,255,0.06); height: 8px; border-radius: 4px; overflow: hidden;">
+              <div style="background: ${meta.color}; width: ${pct}%; height: 100%;"></div>
+            </div>
+          </div>
+        `;
+      }
+      container.innerHTML = html;
+    }
+
+    // Переключение вкладок
+    function switchTab(tabId) {
+      haptic('light');
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+
+      const targetSection = document.getElementById(`tab-${tabId}`);
+      if (targetSection) targetSection.classList.add('active');
+
+      const navBtns = document.querySelectorAll('.bottom-nav .nav-btn');
+      if (tabId === 'leads') navBtns[0]?.classList.add('active');
+      else if (tabId === 'catalog') navBtns[1]?.classList.add('active');
+      else if (tabId === 'analytics') navBtns[2]?.classList.add('active');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Экранирование HTML
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Проверка параметров URL на старте
+    window.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const initialTab = params.get('tab');
+      if (initialTab && ['leads', 'catalog', 'analytics'].includes(initialTab)) {
+        switchTab(initialTab);
+      }
+      fetchLeads();
+    });
   </script>
 </body>
 </html>
