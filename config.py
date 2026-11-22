@@ -36,9 +36,15 @@ EXPORTS_DIR = BASE_DIR / "exports"
 # WebApp URL (опционально)
 WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip() or None
 
-# Поисковый API ключ (опционально, для Serper.dev или Google Custom Search)
-# Serper.dev дает 2,500 бесплатных поисков Google без блокировок дата-центров
-SEARCH_API_KEY = os.getenv("SEARCH_API_KEY", "").strip() or None
+# ==================== ПОИСКОВЫЙ API (SERPER.DEV) ====================
+# Serper.dev дает 2,500 бесплатных поисков Google без блокировок дата-центров Render:
+# Регистрация за 1 мин: https://serper.dev
+SERPER_API_KEY = (
+    os.getenv("SERPER_API_KEY", "").strip()
+    or os.getenv("SEARCH_API_KEY", "").strip()
+    or None
+)
+SEARCH_API_KEY = SERPER_API_KEY
 GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID", "").strip() or None
 
 
@@ -62,13 +68,24 @@ DEFAULT_QUERIES = [
 
 DEFAULT_REGIONS = [
     "Москва и МО",
-    "Санкт-Петербург",
+    "Санкт-Петербург и ЛО",
+    "Кемеровская область",
+    "Новосибирская область",
+    "Свердловская область",
     "Краснодарский край",
-    "Екатеринбург",
-    "Казань",
-    "Новосибирск",
-    "Нижний Новгород",
-    "Ростов-на-Дону",
+    "Татарстан",
+    "Красноярский край",
+    "Тюменская область",
+    "Челябинская область",
+    "Самарская область",
+    "Нижегородская область",
+    "Ростовская область",
+    "Башкортостан",
+    "Пермский край",
+    "Иркутская область",
+    "Омская область",
+    "Воронежская область",
+    "Алтайский край",
 ]
 
 DEFAULT_SEEDS = [
@@ -81,8 +98,10 @@ SEARCH_QUERIES = _parse_list(os.getenv("SEARCH_QUERIES", ""), DEFAULT_QUERIES)
 TARGET_REGIONS = _parse_list(os.getenv("TARGET_REGIONS", ""), DEFAULT_REGIONS)
 SEED_URLS = _parse_list(os.getenv("SEED_URLS", ""), DEFAULT_SEEDS)
 
-PARSER_DELAY = float(os.getenv("PARSER_DELAY", "1.5"))
-PARSER_MAX_PER_QUERY = int(os.getenv("PARSER_MAX_PER_QUERY", "15"))
+PARSER_DELAY = float(os.getenv("PARSER_DELAY", "0.5"))
+PARSER_MAX_PER_QUERY = int(os.getenv("PARSER_MAX_PER_QUERY", "30"))
+PARSER_CONCURRENCY = int(os.getenv("PARSER_CONCURRENCY", "8"))
+PARSER_TIMEOUT = int(os.getenv("PARSER_TIMEOUT", "10"))
 
 # Создаем необходимые локальные директории
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)

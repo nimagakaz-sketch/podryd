@@ -61,6 +61,15 @@ async def _run_parser_task(bot: Bot, admin_id: int, target_regions: list[str] | 
             warnings_items = "\n".join([f"  • {w}" for w in warnings[:3]])
             warnings_text = f"\n⚠️ <b>Предупреждения:</b>\n{warnings_items}\n"
 
+        # Подсказка по SERPER_API_KEY, если он не задан в окружении
+        serper_hint = ""
+        if not config.SERPER_API_KEY:
+            serper_hint = (
+                "💡 <i>Для поиска по выбранным регионам добавьте бесплатный ключ <code>SERPER_API_KEY</code> "
+                "в настройки Render (на https://serper.dev дается 2,500 бесплатных поисков Google без блокировок). "
+                "Сейчас сбор выполнен по каталогам и отраслевым базам.</i>\n\n"
+            )
+
         text = (
             "✅ <b>Веб-парсер успешно завершил сбор!</b>\n\n"
             f"📍 <b>Регионы сбора:</b> {regions_summary}\n"
@@ -77,6 +86,7 @@ async def _run_parser_task(bot: Bot, admin_id: int, target_regions: list[str] | 
             f"🌐 С сайтами/ссылками: <b>{stats['with_website']}</b>\n"
             f"⏳ За последние 24 часа: <b>{stats['last_24h_count']}</b>\n"
             f"{warnings_text}\n"
+            f"{serper_hint}"
             "Нажмите <b>«📊 Скачать базу в Excel»</b> в /admin, чтобы выгрузить обновленную базу с делением по 6 листам!"
         )
         await bot.send_message(

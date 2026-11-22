@@ -16,8 +16,14 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
+      - key: SERPER_API_KEY
+        sync: false
       - key: SEARCH_API_KEY
         sync: false
+      - key: PARSER_CONCURRENCY
+        value: "8"
+      - key: PARSER_TIMEOUT
+        value: "10"
       - key: SEARCH_QUERIES
         value: "благоустройство детские площадки,установка детских городков маф,производство заборов ограждений,подрядчики благоустройство территорий,поставка мафов для парков,ограждения детских садов и школ"
       - key: TARGET_REGIONS

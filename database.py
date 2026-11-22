@@ -63,9 +63,12 @@ async def close_db() -> None:
         logger.info("Пул соединений PostgreSQL закрыт.")
 
 
+_sqlite_lock = asyncio.Lock()
+
+
 def get_sqlite_connection() -> aiosqlite.Connection:
-    """Возвращает объект подключения SQLite для локальной разработки."""
-    return aiosqlite.connect(config.DB_PATH)
+    """Возвращает объект подключения SQLite с увеличенным таймаутом ожидания блокировки."""
+    return aiosqlite.connect(config.DB_PATH, timeout=30.0)
 
 
 def normalize_website(url: str | None) -> str:
@@ -401,108 +404,109 @@ async def save_lead(
             return row["id"], True
 
     # ==================== ВЕТКА SQLITE ====================
-    async with get_sqlite_connection() as db:
-        db.row_factory = aiosqlite.Row
+    async with _sqlite_lock:
+        async with get_sqlite_connection() as db:
+            db.row_factory = aiosqlite.Row
 
-        existing_row = None
+            existing_row = None
 
-        if norm_web:
-            async with db.execute(
-                "SELECT * FROM contractors WHERE website LIKE ? LIMIT 1",
-                (f"%{norm_web}%",),
-            ) as cur:
-                existing_row = await cur.fetchone()
+            if norm_web:
+                async with db.execute(
+                    "SELECT * FROM contractors WHERE website LIKE ? LIMIT 1",
+                    (f"%{norm_web}%",),
+                ) as cur:
+                    existing_row = await cur.fetchone()
 
-        if not existing_row and norm_phone:
-            async with db.execute(
-                "SELECT * FROM contractors WHERE phone LIKE ? LIMIT 1",
-                (f"%{norm_phone}%",),
-            ) as cur:
-                existing_row = await cur.fetchone()
+            if not existing_row and norm_phone:
+                async with db.execute(
+                    "SELECT * FROM contractors WHERE phone LIKE ? LIMIT 1",
+                    (f"%{norm_phone}%",),
+                ) as cur:
+                    existing_row = await cur.fetchone()
 
-        if not existing_row and company_name != "Не указано" and region != "Не указан":
-            async with db.execute(
-                "SELECT * FROM contractors WHERE company_name = ? AND region = ? LIMIT 1",
-                (company_name, region),
-            ) as cur:
-                existing_row = await cur.fetchone()
+            if not existing_row and company_name != "Не указано" and region != "Не указан":
+                async with db.execute(
+                    "SELECT * FROM contractors WHERE company_name = ? AND region = ? LIMIT 1",
+                    (company_name, region),
+                ) as cur:
+                    existing_row = await cur.fetchone()
 
-        if existing_row:
-            existing_id = existing_row["id"]
-            combined_tags = merge_tags(existing_row["category_tags"] or "", category_tags)
+            if existing_row:
+                existing_id = existing_row["id"]
+                combined_tags = merge_tags(existing_row["category_tags"] or "", category_tags)
 
-            updated_phone = existing_row["phone"]
-            if (not updated_phone or updated_phone == "Не указан") and phone != "Не указан":
-                updated_phone = phone
+                updated_phone = existing_row["phone"]
+                if (not updated_phone or updated_phone == "Не указан") and phone != "Не указан":
+                    updated_phone = phone
 
-            updated_web = existing_row["website"]
-            if (not updated_web or updated_web == "Не указан") and website != "Не указан":
-                updated_web = website
+                updated_web = existing_row["website"]
+                if (not updated_web or updated_web == "Не указан") and website != "Не указан":
+                    updated_web = website
 
-            updated_region = existing_row["region"]
-            if (not updated_region or updated_region == "Не указан") and region != "Не указан":
-                updated_region = region
+                updated_region = existing_row["region"]
+                if (not updated_region or updated_region == "Не указан") and region != "Не указан":
+                    updated_region = region
 
-            updated_snippet = existing_row["snippet"] or ""
-            if len(snippet) > len(updated_snippet):
-                updated_snippet = snippet
+                updated_snippet = existing_row["snippet"] or ""
+                if len(snippet) > len(updated_snippet):
+                    updated_snippet = snippet
 
-            cur_has_phone = 1 if normalize_phone_match(updated_phone) else 0
-            cur_has_web = 1 if normalize_website(updated_web) else 0
+                cur_has_phone = 1 if normalize_phone_match(updated_phone) else 0
+                cur_has_web = 1 if normalize_website(updated_web) else 0
 
-            await db.execute(
+                await db.execute(
+                    """
+                    UPDATE contractors
+                    SET category_tags = ?,
+                        phone = ?,
+                        website = ?,
+                        region = ?,
+                        snippet = ?,
+                        has_phone = ?,
+                        has_website = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        combined_tags,
+                        updated_phone,
+                        updated_web,
+                        updated_region,
+                        updated_snippet,
+                        cur_has_phone,
+                        cur_has_web,
+                        existing_id,
+                    ),
+                )
+                await db.commit()
+                return existing_id, False
+
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            cursor = await db.execute(
                 """
-                UPDATE contractors
-                SET category_tags = ?,
-                    phone = ?,
-                    website = ?,
-                    region = ?,
-                    snippet = ?,
-                    has_phone = ?,
-                    has_website = ?
-                WHERE id = ?
+                INSERT INTO contractors (
+                    source, region, phone, website, company_name,
+                    category_tags, has_phone, has_website, snippet,
+                    tg_username, tg_user_id, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    combined_tags,
-                    updated_phone,
-                    updated_web,
-                    updated_region,
-                    updated_snippet,
-                    cur_has_phone,
-                    cur_has_web,
-                    existing_id,
+                    source,
+                    region,
+                    phone,
+                    website,
+                    company_name,
+                    category_tags,
+                    has_phone,
+                    has_website,
+                    snippet,
+                    tg_username,
+                    tg_user_id,
+                    now_str,
                 ),
             )
             await db.commit()
-            return existing_id, False
-
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cursor = await db.execute(
-            """
-            INSERT INTO contractors (
-                source, region, phone, website, company_name,
-                category_tags, has_phone, has_website, snippet,
-                tg_username, tg_user_id, created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                source,
-                region,
-                phone,
-                website,
-                company_name,
-                category_tags,
-                has_phone,
-                has_website,
-                snippet,
-                tg_username,
-                tg_user_id,
-                now_str,
-            ),
-        )
-        await db.commit()
-        return cursor.lastrowid or 0, True
+            return cursor.lastrowid or 0, True
 
 
 async def add_contractor(

@@ -1,4 +1,4 @@
-"""Асинхронный веб-парсер B2B-подрядчиков по благоустройству с масштабируемым сбором сотен компаний."""
+"""Асинхронный веб-парсер B2B-подрядчиков по благоустройству с интеграцией Serper.dev и параллельным обходом."""
 
 import asyncio
 from datetime import datetime
@@ -28,7 +28,7 @@ USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
 ]
 
-# Домены поисковиков, соцсетей и маркетплейсов, которые отбрасываются
+# Стоп-лист доменов: поисковики, соцсети, видеохостинги, маркетплейсы, госсайты
 EXCLUDED_DOMAINS = {
     "google.com", "google.ru", "yandex.ru", "ya.ru", "dzen.ru",
     "duckduckgo.com", "bing.com", "mail.ru", "rambler.ru",
@@ -39,17 +39,23 @@ EXCLUDED_DOMAINS = {
     "ozon.ru", "wildberries.ru", "market.yandex.ru", "sbermarket.ru",
 }
 
-# 10 целевых поисковых шаблонов на каждый регион (детские площадки, заборы, парки, МАФы, детсады)
-SEARCH_QUERY_TEMPLATES = [
-    "детские площадки купить монтаж {region}",
-    "заборы и ограждения производство установка {region}",
-    "благоустройство территорий подрядчик {region}",
-    "детские игровые комплексы мафы поставка {region}",
-    "благоустройство парков скверов компания {region}",
-    "благоустройство дворов жк подрядная организация {region}",
-    "строительство благоустройство детских садов школ {region}",
-    "установка мафов уличных тренажеров {region}",
-    "асфальтирование благоустройство озеленение {region}",
+# Каталоги и справочники компаний, откуда извлекаются внешние ссылки на подрядчиков
+DIRECTORY_DOMAINS = {
+    "pulscen.ru", "blizko.ru", "tiu.ru", "supl.biz", "cataloxy.ru",
+    "orgpage.ru", "all.biz", "flagma.ru", "propartner.ru", "regtorg.ru",
+    "optlist.ru", "yp.ru", "yell.ru", "zoon.ru", "2gis.ru", "spr.ru",
+    "b2b-center.ru", "kompass.com", "trade-portal.ru", "sravni.com",
+}
+
+# 8 целевых запросов для каждого выбранного региона
+REGIONAL_QUERY_TEMPLATES = [
+    "благоустройство территорий {region}",
+    "строительство детских площадок {region}",
+    "монтаж детских игровых комплексов {region}",
+    "установка заборов и ограждений {region}",
+    "подрядчик благоустройство парков {region}",
+    "благоустройство дворов и детских садов {region}",
+    "поставка и монтаж МАФ {region}",
     "подрядчики благоустройства каталог компаний {region}",
 ]
 
@@ -123,8 +129,7 @@ CITIES_MAP = {
     "волгоград": "Волгоградская область",
 }
 
-# Расширенный отраслевой реестр проверенных компаний по всем регионам РФ
-# (гарантирует наполнение базы контактами даже при блокировках поисковиков)
+# Резервный реестр реальных производителей и подрядчиков по 19 регионам РФ
 FALLBACK_CATALOG_COMPANIES = [
     # Москва и МО
     {
@@ -422,22 +427,13 @@ FALLBACK_CATALOG_COMPANIES = [
 
 
 def get_random_headers() -> dict[str, str]:
-    """Генерирует заголовки с ротацией User-Agent и защитой от детекта ботов."""
+    """Генерирует заголовки с ротацией User-Agent."""
     ua = random.choice(USER_AGENTS)
     return {
         "User-Agent": ua,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
         "Accept-Encoding": "gzip, deflate",
-        "Referer": "https://duckduckgo.com/",
-        "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-        "Sec-Ch-Ua-Mobile": "?0",
-        "Sec-Ch-Ua-Platform": '"Windows"',
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "same-origin",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
         "Connection": "keep-alive",
         "DNT": "1",
     }
@@ -449,10 +445,8 @@ def format_ru_phone(digits: str) -> str | None:
         digits = "7" + digits
     if len(digits) == 11 and digits.startswith(("7", "8")):
         code = digits[1:4]
-        # Если 800 - федеральный бесплатный
         if code == "800":
             return f"+7 (800) {digits[4:7]}-{digits[7:9]}-{digits[9:11]}"
-        # Проверяем 4-значные коды городов (Кемерово 3842, Новокузнецк 3843, Томск 3822 и др.)
         four_digit_codes = {"3842", "3843", "3822", "3812", "3512", "3432", "8122"}
         if digits[1:5] in four_digit_codes:
             return f"+7 ({digits[1:5]}) {digits[5:7]}-{digits[7:9]}-{digits[9:11]}"
@@ -461,7 +455,7 @@ def format_ru_phone(digits: str) -> str | None:
 
 
 def extract_phones(text: str) -> list[str]:
-    """Извлекает и нормализует телефонные номера РФ из сырого текста."""
+    """Извлекает и нормализует телефонные номера РФ из текста."""
     phones: list[str] = []
     phone_pattern = re.compile(
         r"(?:(?:\+7|8|7)[\s\-\(]*(\d{3,4})[\s\-\)]*(\d{2,3})[\s\-]*(\d{2})[\s\-]*(\d{2})|"
@@ -479,7 +473,7 @@ def extract_phones(text: str) -> list[str]:
 
 
 def _extract_json_telephones(obj: Any, callback: Any) -> None:
-    """Рекурсивный обход словарей JSON-LD для поиска telephone."""
+    """Рекурсивный обход словарей JSON-LD для поиска номеров телефонов."""
     if isinstance(obj, dict):
         for k, v in obj.items():
             if k.lower() in ("telephone", "phone", "contactpoint"):
@@ -502,11 +496,11 @@ def _extract_json_telephones(obj: Any, callback: Any) -> None:
 
 def extract_all_phones_from_soup(soup: BeautifulSoup, page_text: str) -> list[str]:
     """
-    «Дожим» телефонов со страницы:
+    «Дожим» телефонов:
     1. Поиск в JSON-LD микроразметке (schema.org/Organization, LocalBusiness)
     2. Поиск в ссылках <a href="tel:...">
     3. Поиск в ссылках WhatsApp (wa.me, api.whatsapp.com)
-    4. Поиск в блоках контактов и подвале (footer, .contacts, #contacts)
+    4. Поиск в блоках контактов и подвале
     5. Поиск по общему тексту страницы
     """
     phones: list[str] = []
@@ -565,9 +559,22 @@ def extract_all_phones_from_soup(soup: BeautifulSoup, page_text: str) -> list[st
     return phones[:4]
 
 
+def is_directory_page(url: str, domain: str, title: str, snippet: str) -> bool:
+    """Определяет, является ли страница справочником/каталогом компаний."""
+    if any(d in domain for d in DIRECTORY_DOMAINS):
+        return True
+    combined = f"{url} {title} {snippet}".lower()
+    dir_markers = [
+        "каталог", "справочник", "список компаний", "подрядчики",
+        "производители", "рейтинг компаний", "список фирм", "база предприятий",
+        "реестр", "предприятия города", "компании города"
+    ]
+    return any(marker in combined for marker in dir_markers)
+
+
 def extract_external_contractor_links(soup: BeautifulSoup, base_url: str) -> list[dict[str, str]]:
     """
-    Извлекает ссылки на внешние домены подрядчиков из каталогов, списков и рейтингов.
+    Извлекает ссылки на внешние сайты компаний из каталогов, справочников и агрегаторов.
     """
     discovered: list[dict[str, str]] = []
     seen_domains: set[str] = set()
@@ -582,6 +589,7 @@ def extract_external_contractor_links(soup: BeautifulSoup, base_url: str) -> lis
                 dom
                 and dom != base_domain
                 and not any(exc in dom for exc in EXCLUDED_DOMAINS)
+                and not any(d in dom for d in DIRECTORY_DOMAINS)
                 and dom not in seen_domains
                 and (dom.endswith(".ru") or dom.endswith(".su") or dom.endswith(".рф") or dom.endswith(".com"))
             ):
@@ -590,7 +598,7 @@ def extract_external_contractor_links(soup: BeautifulSoup, base_url: str) -> lis
                 title_attr = a_tag.get("title", "")
                 label = anchor_text or title_attr or dom
 
-                # Проверяем релевантность ссылки или окружающего контекста
+                # Проверяем контекст ссылки
                 relevant = False
                 text_to_check = f"{label} {href}".lower()
                 for cat_words in CATEGORY_KEYWORDS.values():
@@ -606,7 +614,7 @@ def extract_external_contractor_links(soup: BeautifulSoup, base_url: str) -> lis
                         "snippet": "Найдено через отраслевой каталог подрядчиков",
                     })
 
-        if len(discovered) >= 10:
+        if len(discovered) >= 12:
             break
 
     return discovered
@@ -642,7 +650,7 @@ def detect_region(text: str, default_region: str = "Не указан") -> str:
 
 
 def clean_company_name(raw_title: str) -> str:
-    """Очищает заголовок страницы для получения аккуратного названия компании."""
+    """Очищает заголовок страницы для получения названия компании."""
     if not raw_title:
         return "Не указано"
 
@@ -657,19 +665,19 @@ def clean_company_name(raw_title: str) -> str:
 
 
 class WebCollector:
-    """Асинхронный сборщик подрядчиков по благоустройству с масштабированием до сотен записей."""
+    """Масштабируемый веб-парсер подрядчиков по благоустройству с параллельным обходом."""
 
     def __init__(self) -> None:
         self.is_running = False
         self._cancel_requested = False
 
     async def fetch_page(
-        self, session: aiohttp.ClientSession, url: str
+        self, session: aiohttp.ClientSession, url: str, timeout_sec: int = 10
     ) -> tuple[str | None, str | None, int]:
-        """Загружает страницу и возвращает (HTML, финальный URL, статус код)."""
+        """Быстрая загрузка страницы с таймаутом до 10 секунд."""
         try:
             headers = get_random_headers()
-            timeout = aiohttp.ClientTimeout(total=20, connect=10, sock_read=15)
+            timeout = aiohttp.ClientTimeout(total=timeout_sec, connect=5, sock_read=7)
             async with session.get(
                 url,
                 headers=headers,
@@ -689,28 +697,29 @@ class WebCollector:
             return None, None, 0
 
     async def search_via_serper(
-        self, session: aiohttp.ClientSession, query: str
+        self, session: aiohttp.ClientSession, query: str, num: int = 30
     ) -> list[dict[str, str]]:
-        """Поиск через Serper.dev API с глубиной до 30 ссылок за один вызов."""
+        """
+        Основной поисковый источник: Google Search API через Serper.dev.
+        Быстро возвращает до 30–50 органических ссылок без блокировок с серверов Render.
+        """
         results: list[dict[str, str]] = []
-        if not config.SEARCH_API_KEY:
+        if not config.SERPER_API_KEY:
             return results
 
         url = "https://google.serper.dev/search"
         headers = {
-            "X-API-KEY": config.SEARCH_API_KEY,
+            "X-API-KEY": config.SERPER_API_KEY,
             "Content-Type": "application/json",
         }
-        # num: 30 для извлечения максимального пула ссылок
-        payload = {"q": query, "gl": "ru", "hl": "ru", "num": 30}
+        payload = {"q": query, "gl": "ru", "hl": "ru", "num": num}
 
         try:
-            logger.info("Поиск через Serper.dev API (num: 30): '%s'", query)
-            timeout = aiohttp.ClientTimeout(total=20, connect=10)
+            logger.info("Поиск через Serper.dev API (num: %d): '%s'", num, query)
+            timeout = aiohttp.ClientTimeout(total=10, connect=5)
             async with session.post(
                 url, headers=headers, json=payload, timeout=timeout, ssl=False
             ) as resp:
-                logger.info("Serper.dev API статус: %d для запроса '%s'", resp.status, query)
                 if resp.status == 200:
                     data = await resp.json()
                     for item in data.get("organic", []):
@@ -724,7 +733,7 @@ class WebCollector:
                             "title": item.get("title", domain),
                             "snippet": item.get("snippet", ""),
                         })
-                    logger.info("Serper.dev вернул %d органических ссылок", len(results))
+                    logger.info("Serper.dev вернул %d органических ссылок для '%s'", len(results), query)
                 else:
                     text = await resp.text()
                     logger.warning("Serper.dev API ошибка %d: %s", resp.status, text[:200])
@@ -737,133 +746,62 @@ class WebCollector:
         self, session: aiohttp.ClientSession, query: str
     ) -> tuple[list[dict[str, str]], int, str]:
         """
-        Поиск через DuckDuckGo с POST-запросом, пагинацией до 25-30 ссылок и логированием.
+        Резервный поиск через DuckDuckGo (быстрый запрос с таймаутом 5 сек).
         """
         results: list[dict[str, str]] = []
         headers = get_random_headers()
         url = "https://html.duckduckgo.com/html/"
         data = {"q": query}
-        timeout = aiohttp.ClientTimeout(total=20, connect=10, sock_read=15)
-        seen_domains: set[str] = set()
-
-        def _parse_duck_html(html_text: str) -> tuple[list[dict[str, str]], dict[str, str] | None]:
-            items = []
-            soup = BeautifulSoup(html_text, "html.parser")
-            result_nodes = soup.select(".result, .web-result")
-
-            for node in result_nodes:
-                link_tag = node.select_one(".result__url, .result__title a, a.result__snippet")
-                if not link_tag:
-                    continue
-
-                raw_href = link_tag.get("href", "")
-                target_url = raw_href
-                if "uddg=" in raw_href:
-                    parsed_q = parse_qs(urlparse(raw_href).query)
-                    if "uddg" in parsed_q:
-                        target_url = unquote(parsed_q["uddg"][0])
-
-                parsed_target = urlparse(target_url)
-                domain = parsed_target.netloc.lower()
-                if not domain or any(exc in domain for exc in EXCLUDED_DOMAINS) or domain in seen_domains:
-                    continue
-                seen_domains.add(domain)
-
-                title_tag = node.select_one(".result__title, h2")
-                title = title_tag.get_text(strip=True) if title_tag else domain
-
-                snippet_tag = node.select_one(".result__snippet")
-                snippet = snippet_tag.get_text(strip=True) if snippet_tag else ""
-
-                items.append({
-                    "url": target_url,
-                    "domain": domain,
-                    "title": title,
-                    "snippet": snippet,
-                })
-
-            # Ищем форму для перехода на следующую страницу (Next Page)
-            next_form_data = None
-            next_form = soup.select_one("form[action*='/html/']")
-            if next_form:
-                inputs = {inp.get("name"): inp.get("value", "") for inp in next_form.select("input") if inp.get("name")}
-                if any(k in inputs for k in ("s", "nextParams", "dc")):
-                    inputs["q"] = query
-                    next_form_data = inputs
-
-            return items, next_form_data
+        timeout = aiohttp.ClientTimeout(total=5, connect=3, sock_read=4)
 
         try:
-            logger.info("Поиск через DuckDuckGo POST: '%s'", query)
+            logger.info("Резервный поиск DuckDuckGo: '%s'", query)
             async with session.post(
                 url, data=data, headers=headers, timeout=timeout, ssl=False
             ) as resp:
                 status = resp.status
-                logger.info("DuckDuckGo вернул HTTP %d для запроса '%s'", status, query)
-
                 if status == 200:
                     html = await resp.text(errors="replace")
-                    page_items, next_form_data = _parse_duck_html(html)
-                    results.extend(page_items)
-
-                    # Если результатов на первой странице < 20 и найдена пагинация, запрашиваем страницу 2
-                    if next_form_data and len(results) < 25:
-                        try:
-                            await asyncio.sleep(random.uniform(1.0, 2.0))
-                            async with session.post(
-                                url, data=next_form_data, headers=get_random_headers(), timeout=timeout, ssl=False
-                            ) as resp2:
-                                if resp2.status == 200:
-                                    html2 = await resp2.text(errors="replace")
-                                    p2_items, _ = _parse_duck_html(html2)
-                                    results.extend(p2_items)
-                                    logger.info(
-                                        "DuckDuckGo пагинация добавила %d ссылок (всего: %d)",
-                                        len(p2_items),
-                                        len(results),
-                                    )
-                        except Exception as p_err:
-                            logger.debug("Пагинация DuckDuckGo завершилась: %s", p_err)
-
-                    logger.info("DuckDuckGo успешно извлек %d релевантных ссылок для запроса '%s'", len(results), query)
+                    soup = BeautifulSoup(html, "html.parser")
+                    for node in soup.select(".result, .web-result"):
+                        link_tag = node.select_one(".result__url, .result__title a, a.result__snippet")
+                        if not link_tag:
+                            continue
+                        raw_href = link_tag.get("href", "")
+                        target_url = raw_href
+                        if "uddg=" in raw_href:
+                            parsed_q = parse_qs(urlparse(raw_href).query)
+                            if "uddg" in parsed_q:
+                                target_url = unquote(parsed_q["uddg"][0])
+                        parsed_target = urlparse(target_url)
+                        domain = parsed_target.netloc.lower()
+                        if not domain or any(exc in domain for exc in EXCLUDED_DOMAINS):
+                            continue
+                        title_tag = node.select_one(".result__title, h2")
+                        title = title_tag.get_text(strip=True) if title_tag else domain
+                        snippet_tag = node.select_one(".result__snippet")
+                        snippet = snippet_tag.get_text(strip=True) if snippet_tag else ""
+                        results.append({
+                            "url": target_url,
+                            "domain": domain,
+                            "title": title,
+                            "snippet": snippet,
+                        })
                     return results, status, "OK"
-                elif status in (403, 202):
-                    msg = f"HTTP {status}: Блокировка дата-центра / бот-контроль DuckDuckGo"
-                    logger.warning("DuckDuckGo ограничил доступ: %s (запрос: '%s')", msg, query)
-                    return results, status, msg
                 else:
-                    msg = f"HTTP {status}"
-                    logger.warning("DuckDuckGo вернул статус %s для запроса '%s'", msg, query)
-                    return results, status, msg
-
-        except asyncio.TimeoutError as e:
-            msg = f"TimeoutError: Превышено время ожидания ответа ({timeout.total} сек.)"
-            logger.warning("Таймаут DuckDuckGo [%s]: %s для запроса '%s'", type(e).__name__, msg, query)
-            return results, 0, msg
-        except aiohttp.ClientConnectorError as e:
-            msg = f"ClientConnectorError: Ошибка подключения к серверу ({e})"
-            logger.warning("Сбой соединения с DuckDuckGo [%s]: %s для запроса '%s'", type(e).__name__, e, query)
-            return results, 0, msg
-        except aiohttp.ClientResponseError as e:
-            msg = f"ClientResponseError: HTTP {e.status} {e.message}"
-            logger.warning("Ответ с ошибкой от DuckDuckGo [%s]: статус %s, сообщение: %s", type(e).__name__, e.status, e.message)
-            return results, e.status, msg
+                    return results, status, f"HTTP {status}"
         except Exception as e:
-            err_name = type(e).__name__
-            err_msg = str(e) or repr(e)
-            logger.warning("Непредвиденная ошибка соединения с DuckDuckGo [%s]: %s (запрос: '%s')", err_name, err_msg, query)
-            return results, 0, f"{err_name}: {err_msg}"
+            return results, 0, f"{type(e).__name__}: {e}"
 
     async def scrape_target_site(
         self, session: aiohttp.ClientSession, site_info: dict[str, str], query_region: str
     ) -> tuple[dict[str, Any] | None, list[dict[str, str]]]:
         """
-        Глубокий парсинг сайта:
+        Глубокий парсинг сайта с таймаутом до 10 секунд:
         - Главная страница
-        - «Дожим» телефонов (микроразметка, tel:, WhatsApp, футер, регулярки)
-        - При нехватке контактов — переход на страницу контактов
-        - Сбор внешних ссылок на подрядчиков для очереди каталогов
-        Возвращает (lead_data, discovered_links).
+        - Извлечение всех телефонов (микроразметка, tel:, WhatsApp, футер, текст)
+        - При нехватке контактов — быстрый переход на страницу контактов (таймаут 5 сек)
+        - Сбор внешних ссылок на подрядчиков для очереди обхода
         """
         url = site_info["url"]
         domain = site_info["domain"]
@@ -871,11 +809,9 @@ class WebCollector:
         initial_snippet = site_info.get("snippet", "")
         discovered_links: list[dict[str, str]] = []
 
-        logger.info("Обход целевого сайта: %s (%s)", domain, url)
-        html, final_url, status = await self.fetch_page(session, url)
+        html, final_url, status = await self.fetch_page(session, url, timeout_sec=config.PARSER_TIMEOUT)
 
         if not html:
-            logger.info("Сайт %s вернул HTTP %d, используем метаданные из каталога/поиска", domain, status)
             cats = detect_categories(initial_title + " " + initial_snippet)
             lead_item = {
                 "website": domain,
@@ -899,34 +835,36 @@ class WebCollector:
         # Полный дожим телефонов (микроразметка, tel, wa, футер, текст)
         phones = extract_all_phones_from_soup(soup, full_text)
 
-        # Поиск контактов на подстраницах при нехватке телефонов (< 2)
-        contact_urls: list[str] = []
-        for a_tag in soup.find_all("a", href=True):
-            href = a_tag["href"].lower()
-            if any(part in href for part in [
-                "contact", "kontakt", "o-nas", "about", "requisite",
-                "rekvizit", "contacts", "feedback",
-            ]):
-                full_contact_url = urljoin(final_url or url, a_tag["href"])
-                if full_contact_url not in contact_urls:
-                    contact_urls.append(full_contact_url)
+        # Если найдено меньше 2 телефонов, ищем подстраницу контактов
+        if len(phones) < 2:
+            contact_url = None
+            for a_tag in soup.find_all("a", href=True):
+                href = a_tag["href"].lower()
+                if any(part in href for part in [
+                    "contact", "kontakt", "o-nas", "about", "requisite",
+                    "rekvizit", "contacts", "feedback",
+                ]):
+                    full_contact = urljoin(final_url or url, a_tag["href"])
+                    if urlparse(full_contact).netloc.lower() == domain:
+                        contact_url = full_contact
+                        break
 
-        if contact_urls and len(phones) < 2:
-            contact_html, _, c_status = await self.fetch_page(session, contact_urls[0])
-            if contact_html:
-                contact_soup = BeautifulSoup(contact_html, "html.parser")
-                contact_text = contact_soup.get_text(" ", strip=True)
-                extra_phones = extract_all_phones_from_soup(contact_soup, contact_text)
-                for ep in extra_phones:
-                    if ep not in phones:
-                        phones.append(ep)
-                full_text += " " + contact_text
+            if contact_url:
+                contact_html, _, _ = await self.fetch_page(session, contact_url, timeout_sec=5)
+                if contact_html:
+                    c_soup = BeautifulSoup(contact_html, "html.parser")
+                    c_text = c_soup.get_text(" ", strip=True)
+                    extra = extract_all_phones_from_soup(c_soup, c_text)
+                    for ep in extra:
+                        if ep not in phones:
+                            phones.append(ep)
+                    full_text += " " + c_text
 
-        # Извлечение внешних ссылок на подрядчиков (discovered catalog crawling)
+        # Извлечение внешних ссылок на компании (каталоги / партнеры)
         discovered_links = extract_external_contractor_links(soup, final_url or url)
 
         region = detect_region(full_text, default_region=query_region)
-        combined_text = f"{page_title} {h1_text} {initial_snippet} {full_text[:4000]}"
+        combined_text = f"{page_title} {h1_text} {initial_snippet} {full_text[:3000]}"
         categories = detect_categories(combined_text)
 
         snippet = initial_snippet
@@ -938,15 +876,6 @@ class WebCollector:
                 snippet = full_text[:250].replace("\n", " ").strip()
 
         company_name = clean_company_name(page_title or h1_text)
-
-        logger.info(
-            "Успешно обработан сайт %s: найдено телефонов: %d, регион: %s, теги: %s, внешних ссылок: %d",
-            domain,
-            len(phones),
-            region,
-            categories,
-            len(discovered_links),
-        )
 
         lead_data = {
             "website": domain,
@@ -964,12 +893,12 @@ class WebCollector:
         progress_callback: Any = None,
     ) -> dict[str, Any]:
         """
-        Запуск цикла масштабируемого сбора данных:
-        - 8–10 целевых запросов на каждый выбранный регион
-        - Глубина до 25–30 ссылок на запрос (Serper.dev num:30 / DuckDuckGo пагинация)
-        - Обход каталогов и внешних ссылок подрядчиков (discovered queue)
-        - Стриминговая запись в БД (сохранение лида сразу при нахождении)
-        - Дожим телефонных номеров со всех страниц
+        Масштабируемый параллельный запуск сбора данных:
+        1. 8 целевых запросов на каждый выбранный регион
+        2. Поиск через Serper.dev API (до 30 ссылок за запрос без блокировок)
+        3. Обход региональных каталогов с извлечением внешних ссылок подрядчиков
+        4. Параллельный обход сайтов через asyncio.Semaphore(8) с таймаутом 10 сек
+        5. Мгновенное сохранение лидов в БД (потоковая запись)
         """
         if self.is_running:
             return {"status": "already_running", "added": 0, "updated": 0}
@@ -978,17 +907,18 @@ class WebCollector:
         self._cancel_requested = False
         start_time = time.time()
 
-        added_count = 0
-        added_with_phone = 0
-        updated_count = 0
-        search_links_found = 0
-        queries_executed = 0
-        consecutive_search_failures = 0
+        stats_tracker = {
+            "added": 0,
+            "added_with_phone": 0,
+            "updated": 0,
+            "search_links_found": 0,
+            "queries_executed": 0,
+        }
         processed_domains: set[str] = set()
-        crawl_queue: list[dict[str, str]] = []
+        discovered_queue: list[tuple[dict[str, str], str]] = []
         warnings: list[str] = []
 
-        # Определяем целевые регионы: из переданных параметров или из БД
+        # 1. Получаем целевые регионы
         target_regions = regions
         if not target_regions:
             try:
@@ -1001,122 +931,105 @@ class WebCollector:
 
         logger.info("=== Запуск масштабируемого веб-парсера B2B подрядчиков ===")
         logger.info("Целевые регионы (%d): %s", len(target_regions), target_regions)
-        search_mode = "Serper.dev API" if config.SEARCH_API_KEY else "DuckDuckGo POST + Резервные каталоги"
-        logger.info("Режим поиска: %s", search_mode)
 
-        # Коннектор с отключенной проверкой SSL для максимальной надежности в любых облачных контейнерах
+        has_serper = bool(config.SERPER_API_KEY)
+        search_mode = "Google Search (Serper.dev API)" if has_serper else "Отраслевые каталоги + Резервный поиск"
+        logger.info("Режим поиска: %s (SERPER_API_KEY: %s)", search_mode, "ДА" if has_serper else "НЕТ")
+
+        if not has_serper:
+            warnings.append(
+                "SERPER_API_KEY не задан. Для глубокого поиска по выбранным регионам добавьте ключ SERPER_API_KEY в переменные окружения Render."
+            )
+
+        # Коннектор с отключенной проверкой SSL
         connector = aiohttp.TCPConnector(ssl=False)
+        semaphore = asyncio.Semaphore(config.PARSER_CONCURRENCY)
+        state_lock = asyncio.Lock()
 
         try:
             async with aiohttp.ClientSession(connector=connector) as session:
-                # 1. Формируем пул целевых запросов: по 10 формулировок на каждый выбранный регион
+                # ----------------- ЭТАП 1: ПОИСК ССЫЛОК ПО ВЫБРАННЫМ РЕГИОНАМ -----------------
                 queries_to_run: list[tuple[str, str]] = []
                 for reg in target_regions:
-                    for tmpl in SEARCH_QUERY_TEMPLATES:
-                        query_str = tmpl.format(region=reg)
-                        queries_to_run.append((query_str, reg))
+                    for tmpl in REGIONAL_QUERY_TEMPLATES:
+                        queries_to_run.append((tmpl.format(region=reg), reg))
 
-                total_steps = len(queries_to_run) + len(config.SEED_URLS) + 1
-                current_step = 0
+                logger.info("Сформировано %d целевых запросов для поиска по регионам", len(queries_to_run))
+
+                candidate_sites: list[tuple[dict[str, str], str]] = []
+                ddg_blocked = False
 
                 for query_str, region_name in queries_to_run:
                     if self._cancel_requested:
                         break
 
-                    # Если поисковик выдал 3 подряд сбоя соединения/блокировки с облачного IP дата-центра,
-                    # не висим на всех запросах, переходим к обнаруженным каталогам и отраслевым реестрам!
-                    if consecutive_search_failures >= 3 and not config.SEARCH_API_KEY:
-                        logger.warning(
-                            "Поисковый сервис DuckDuckGo временно ограничил запросы с IP дата-центра (3 сбоя подряд). "
-                            "Автоматически переключаемся на обход каталогов, очереди ссылок и отраслевых реестров..."
-                        )
-                        if "Блокировка DuckDuckGo" not in str(warnings):
-                            warnings.append(
-                                "Поисковик DuckDuckGo ограничил прямые запросы с IP дата-центра. "
-                                "Сбор переключен на обход отраслевых каталогов и региональных производителей."
-                            )
-                        break
-
-                    current_step += 1
-                    queries_executed += 1
+                    stats_tracker["queries_executed"] += 1
                     if progress_callback:
                         await progress_callback(
-                            f"🔍 Поиск ({current_step}/{total_steps}): «{query_str}»..."
+                            f"🔍 Поиск ({stats_tracker['queries_executed']}/{len(queries_to_run)}): «{query_str}»..."
                         )
 
                     search_results: list[dict[str, str]] = []
 
-                    # А. Если настроен API-ключ (Serper.dev), используем его
-                    if config.SEARCH_API_KEY:
-                        search_results = await self.search_via_serper(session, query_str)
-
-                    # Б. Если API нет или он пуст, вызываем DuckDuckGo с пагинацией
-                    if not search_results:
-                        ddg_results, status, reason = await self.search_via_duckduckgo(session, query_str)
-                        if ddg_results:
-                            search_results = ddg_results
-                            consecutive_search_failures = 0
+                    # А. Если есть Serper.dev API — используем его
+                    if has_serper:
+                        search_results = await self.search_via_serper(session, query_str, num=config.PARSER_MAX_PER_QUERY)
+                        stats_tracker["search_links_found"] += len(search_results)
+                        await asyncio.sleep(0.3)
+                    elif not ddg_blocked:
+                        # Б. Если Serper нет, делаем быстрый тест DuckDuckGo
+                        ddg_res, status, reason = await self.search_via_duckduckgo(session, query_str)
+                        if ddg_res:
+                            search_results = ddg_res
+                            stats_tracker["search_links_found"] += len(search_results)
                         else:
-                            consecutive_search_failures += 1
-                            if reason != "OK":
-                                warnings.append(f"Поиск «{query_str}»: {reason}")
-
-                    search_links_found += len(search_results)
-                    await asyncio.sleep(random.uniform(config.PARSER_DELAY, config.PARSER_DELAY + 1.0))
-
-                    # Обработка извлеченных ссылок (до 25 ссылок на запрос)
-                    for site_info in search_results[:config.PARSER_MAX_PER_QUERY]:
-                        if self._cancel_requested:
-                            break
-
-                        domain = site_info["domain"]
-                        if domain in processed_domains:
-                            continue
-                        processed_domains.add(domain)
-
-                        lead_data, ext_links = await self.scrape_target_site(session, site_info, region_name)
-                        if lead_data:
-                            # СТРИМИНГОВАЯ ЗАПИСЬ: сохраняем в БД сразу!
-                            _, is_new = await database.save_lead(
-                                source="web_parser",
-                                region=lead_data["region"],
-                                phone=lead_data["phone"],
-                                website=lead_data["website"],
-                                company_name=lead_data["company_name"],
-                                category_tags=lead_data["category_tags"],
-                                snippet=lead_data["snippet"],
+                            # На Render дата-центры блокируются (202/403/Timeout)
+                            logger.warning("DuckDuckGo недоступен с текущего IP (%s), переходим к каталогам", reason)
+                            ddg_blocked = True
+                            warnings.append(
+                                "Поисковик DuckDuckGo ограничил запросы с IP Render. Сбор выполнен по отраслевым каталогам."
                             )
-                            if is_new:
-                                added_count += 1
-                                if lead_data["phone"] != "Не указан":
-                                    added_with_phone += 1
-                            else:
-                                updated_count += 1
 
-                        # Добавляем обнаруженные внешние ссылки каталогов в очередь обхода
-                        for link in ext_links:
-                            if link["domain"] not in processed_domains and len(crawl_queue) < 150:
-                                crawl_queue.append(link)
+                    for site_info in search_results:
+                        dom = site_info["domain"]
+                        if dom not in processed_domains and not any(exc in dom for exc in EXCLUDED_DOMAINS):
+                            candidate_sites.append((site_info, region_name))
 
-                        await asyncio.sleep(random.uniform(0.8, 1.5))
+                    # Если поисковик на Render заблокирован и нет Serper API, прерываем цикл поиска сразу
+                    if not has_serper and ddg_blocked:
+                        break
 
-                # 2. Обход накопленной очереди найденных внешних ссылок подрядчиков (crawl_queue)
-                if crawl_queue and not self._cancel_requested:
-                    logger.info("Запуск обхода найденных ссылок подрядчиков (%d шт.)...", len(crawl_queue))
-                    if progress_callback:
-                        await progress_callback(f"🌐 Обход найденных подрядчиков ({len(crawl_queue)} сайтов)...")
+                logger.info("Найдено %d потенциальных сайтов из поиска", len(candidate_sites))
 
-                    for site_info in crawl_queue[:60]:
+                # ----------------- ВСПОМОГАТЕЛЬНЫЙ ОБРАБОТЧИК ОДНОГО САЙТА -----------------
+                async def _process_single_site(site_info: dict[str, str], reg_name: str) -> None:
+                    async with semaphore:
                         if self._cancel_requested:
-                            break
+                            return
 
                         dom = site_info["domain"]
-                        if dom in processed_domains:
-                            continue
-                        processed_domains.add(dom)
+                        async with state_lock:
+                            if dom in processed_domains or any(exc in dom for exc in EXCLUDED_DOMAINS):
+                                return
+                            processed_domains.add(dom)
 
-                        lead_data, _ = await self.scrape_target_site(session, site_info, "Не указан")
+                        # Если сайт определен как каталог или справочник
+                        if is_directory_page(site_info["url"], dom, site_info.get("title", ""), site_info.get("snippet", "")):
+                            logger.info("Каталог компаний: %s, извлекаем ссылки на подрядчиков...", dom)
+                            cat_html, final_cat_url, _ = await self.fetch_page(session, site_info["url"], timeout_sec=config.PARSER_TIMEOUT)
+                            if cat_html:
+                                soup = BeautifulSoup(cat_html, "html.parser")
+                                ext_links = extract_external_contractor_links(soup, final_cat_url or site_info["url"])
+                                async with state_lock:
+                                    for link in ext_links:
+                                        if link["domain"] not in processed_domains and len(discovered_queue) < 150:
+                                            discovered_queue.append((link, reg_name))
+                            return
+
+                        # Обычный целевой сайт компании
+                        lead_data, ext_links = await self.scrape_target_site(session, site_info, reg_name)
                         if lead_data:
+                            # Потоковое сохранение в БД
                             _, is_new = await database.save_lead(
                                 source="web_parser",
                                 region=lead_data["region"],
@@ -1126,116 +1039,75 @@ class WebCollector:
                                 category_tags=lead_data["category_tags"],
                                 snippet=lead_data["snippet"],
                             )
-                            if is_new:
-                                added_count += 1
-                                if lead_data["phone"] != "Не указан":
-                                    added_with_phone += 1
-                            else:
-                                updated_count += 1
+                            async with state_lock:
+                                if is_new:
+                                    stats_tracker["added"] += 1
+                                    if lead_data["phone"] != "Не указан":
+                                        stats_tracker["added_with_phone"] += 1
+                                else:
+                                    stats_tracker["updated"] += 1
 
-                        await asyncio.sleep(random.uniform(0.8, 1.5))
+                        if ext_links:
+                            async with state_lock:
+                                for link in ext_links:
+                                    if link["domain"] not in processed_domains and len(discovered_queue) < 150:
+                                        discovered_queue.append((link, reg_name))
 
-                # 3. Обработка стартовых отраслевых каталогов SEED_URLS
+                # ----------------- ЭТАП 2: БЫСТРЫЙ ПАРАЛЛЕЛЬНЫЙ ОБХОД САЙТОВ ИЗ ПОИСКА -----------------
+                if candidate_sites:
+                    if progress_callback:
+                        await progress_callback(f"⚡ Параллельный обход {len(candidate_sites)} сайтов (потоки: {config.PARSER_CONCURRENCY})...")
+
+                    tasks = [_process_single_site(site_item, reg) for site_item, reg in candidate_sites]
+                    await asyncio.gather(*tasks, return_exceptions=True)
+
+                # ----------------- ЭТАП 3: ОБХОД ОБНАРУЖЕННОЙ ОЧЕРЕДИ ССЫЛОК КАТАЛОГОВ -----------------
+                if discovered_queue and not self._cancel_requested:
+                    logger.info("Запуск обхода обнаруженных ссылок подрядчиков (%d шт.)...", len(discovered_queue))
+                    if progress_callback:
+                        await progress_callback(f"🌐 Обход обнаруженных подрядчиков ({len(discovered_queue)} сайтов)...")
+
+                    tasks = [_process_single_site(site_item, reg) for site_item, reg in discovered_queue[:80]]
+                    await asyncio.gather(*tasks, return_exceptions=True)
+
+                # ----------------- ЭТАП 4: ОБРАБОТКА СТАРТОВЫХ SEED_URLS -----------------
                 for seed_url in config.SEED_URLS:
                     if self._cancel_requested:
                         break
 
-                    current_step += 1
-                    if progress_callback:
-                        await progress_callback(f"🌐 Сбор по каталогу: {seed_url}...")
-
                     logger.info("Обработка стартового каталога: %s", seed_url)
-                    html, _, status = await self.fetch_page(session, seed_url)
-                    await asyncio.sleep(config.PARSER_DELAY)
+                    html, final_seed_url, _ = await self.fetch_page(session, seed_url, timeout_sec=config.PARSER_TIMEOUT)
+                    if html:
+                        soup = BeautifulSoup(html, "html.parser")
+                        discovered_seeds = extract_external_contractor_links(soup, final_seed_url or seed_url)
+                        seed_tasks = [_process_single_site(item, "Не указан") for item in discovered_seeds]
+                        await asyncio.gather(*seed_tasks, return_exceptions=True)
 
-                    if not html:
-                        logger.warning("Каталог %s вернул статус %d", seed_url, status)
-                        continue
-
-                    soup = BeautifulSoup(html, "html.parser")
-                    discovered_seeds = extract_external_contractor_links(soup, seed_url)
-
-                    for seed_item in discovered_seeds:
-                        if self._cancel_requested:
-                            break
-
-                        dom = seed_item["domain"]
-                        if dom in processed_domains:
-                            continue
-                        processed_domains.add(dom)
-
-                        lead_data, _ = await self.scrape_target_site(session, seed_item, query_region="Не указан")
-                        if lead_data:
-                            _, is_new = await database.save_lead(
-                                source="web_parser",
-                                region=lead_data["region"],
-                                phone=lead_data["phone"],
-                                website=lead_data["website"],
-                                company_name=lead_data["company_name"],
-                                category_tags=lead_data["category_tags"],
-                                snippet=lead_data["snippet"],
-                            )
-                            if is_new:
-                                added_count += 1
-                                if lead_data["phone"] != "Не указан":
-                                    added_with_phone += 1
-                            else:
-                                updated_count += 1
-
-                        await asyncio.sleep(random.uniform(0.8, 1.5))
-
-                # 4. Гарантированный сбор по расширенному отраслевому реестру FALLBACK_CATALOG_COMPANIES
-                if progress_callback:
-                    await progress_callback("🏗 Обработка реестра региональных производителей МАФ и ограждений...")
-
-                logger.info(
-                    "Запуск обхода отраслевого реестра (%d компаний)...",
-                    len(FALLBACK_CATALOG_COMPANIES),
-                )
-
+                # ----------------- ЭТАП 5: РЕЕСТР FALLBACK-КОМПАНИЙ (С ПРИОРИТЕТОМ ВЫБРАННЫХ РЕГИОНОВ) -----------------
+                prioritized_fallbacks: list[dict[str, Any]] = []
+                # 1. Сначала компании из выбранных пользователем регионов
                 for comp in FALLBACK_CATALOG_COMPANIES:
-                    if self._cancel_requested:
-                        break
+                    if comp["region"] in target_regions:
+                        prioritized_fallbacks.append(comp)
+                # 2. Затем остальные общероссийские производители
+                for comp in FALLBACK_CATALOG_COMPANIES:
+                    if comp["region"] not in target_regions:
+                        prioritized_fallbacks.append(comp)
 
-                    parsed_dom = urlparse(comp["url"]).netloc.lower()
-                    if parsed_dom in processed_domains:
-                        continue
-                    processed_domains.add(parsed_dom)
-
-                    logger.info("Глубокий сбор компании из реестра: %s (%s)", parsed_dom, comp["url"])
-                    lead_data, _ = await self.scrape_target_site(
-                        session,
+                logger.info("Параллельный сбор компаний из реестра (%d компаний)...", len(prioritized_fallbacks))
+                fallback_tasks = [
+                    _process_single_site(
                         {
                             "url": comp["url"],
-                            "domain": parsed_dom,
+                            "domain": urlparse(comp["url"]).netloc.lower(),
                             "title": comp["title"],
                             "snippet": comp["snippet"],
                         },
-                        query_region=comp["region"],
+                        comp["region"],
                     )
-
-                    if lead_data:
-                        final_tags = database.merge_tags(comp["category_tags"], lead_data["category_tags"])
-                        final_phone = lead_data["phone"]
-                        reg_to_save = lead_data["region"] if lead_data["region"] != "Не указан" else comp["region"]
-
-                        _, is_new = await database.save_lead(
-                            source="web_parser",
-                            region=reg_to_save,
-                            phone=final_phone,
-                            website=lead_data["website"],
-                            company_name=lead_data["company_name"],
-                            category_tags=final_tags,
-                            snippet=lead_data["snippet"],
-                        )
-                        if is_new:
-                            added_count += 1
-                            if final_phone != "Не указан":
-                                added_with_phone += 1
-                        else:
-                            updated_count += 1
-
-                    await asyncio.sleep(random.uniform(0.5, 1.2))
+                    for comp in prioritized_fallbacks
+                ]
+                await asyncio.gather(*fallback_tasks, return_exceptions=True)
 
         except Exception as e:
             logger.error("Критическая ошибка при работе веб-парсера [%s]: %s", type(e).__name__, e, exc_info=True)
@@ -1247,11 +1119,11 @@ class WebCollector:
         logger.info(
             "=== Сбор завершен за %.1f сек. Найдено в поиске: %d, Сайтов обойдено: %d, Новых: %d (с тел: %d), Обновлено: %d ===",
             duration,
-            search_links_found,
+            stats_tracker["search_links_found"],
             len(processed_domains),
-            added_count,
-            added_with_phone,
-            updated_count,
+            stats_tracker["added"],
+            stats_tracker["added_with_phone"],
+            stats_tracker["updated"],
         )
 
         return {
@@ -1259,12 +1131,12 @@ class WebCollector:
             "regions": target_regions,
             "search_mode": search_mode,
             "duration_seconds": duration,
-            "queries_count": queries_executed,
-            "search_links_found": search_links_found,
+            "queries_count": stats_tracker["queries_executed"],
+            "search_links_found": stats_tracker["search_links_found"],
             "sites_crawled": len(processed_domains),
-            "added": added_count,
-            "added_with_phone": added_with_phone,
-            "updated": updated_count,
+            "added": stats_tracker["added"],
+            "added_with_phone": stats_tracker["added_with_phone"],
+            "updated": stats_tracker["updated"],
             "warnings": warnings,
         }
 
