@@ -1,0 +1,24 @@
+services:
+  - type: worker
+    name: podryd-telegram-bot
+    env: python
+    region: frankfurt
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.8
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: SEARCH_QUERIES
+        value: "благоустройство детские площадки,установка детских городков маф,производство заборов ограждений,подрядчики благоустройство территорий,поставка мафов для парков,ограждения детских садов и школ"
+      - key: TARGET_REGIONS
+        value: "Москва и МО,Санкт-Петербург,Краснодарский край,Екатеринбург,Казань,Новосибирск,Нижний Новгород,Ростов-на-Дону"
+      - key: PARSER_DELAY
+        value: "1.5"

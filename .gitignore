@@ -1,0 +1,43 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+env.bak/
+venv.bak/
+
+# Environment variables & secrets (НИКОГДА НЕ ПУШИТЬ НА GITHUB)
+.env
+.env.local
+.env.*.local
+
+# Databases (локальный SQLite)
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+data/*.sqlite
+
+# Exports and temporary files
+exports/*.xlsx
+*.xlsx
+*.csv
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Render / Build logs
+*.log

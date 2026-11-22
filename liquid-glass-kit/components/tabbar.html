@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Liquid Glass — Tab Bar (компонент)</title>
+<style>
+:root{--u:min(.46px,calc((100vw - 24px)/1058));--blue:#3a8bf7;--top:calc(max(env(safe-area-inset-top,0px),var(--tg-safe-area-inset-top,0px)) + var(--tg-content-safe-area-inset-top,0px));--pl:max(16px,env(safe-area-inset-left,0px));--pr:max(16px,env(safe-area-inset-right,0px));--hh:43px;--gap-top:6px;--bot:max(env(safe-area-inset-bottom,0px),var(--tg-safe-area-inset-bottom,0px));color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#000;overflow:hidden;overscroll-behavior:none;color:#fff;font-family:-apple-system,"SF Pro Text",Inter,system-ui,"Segoe UI",sans-serif;user-select:none;-webkit-user-select:none}
+.dock{position:fixed;left:0;right:0;bottom:calc(var(--bot) + 12px);display:flex;justify-content:center;gap:calc(24*var(--u))}
+.matte{border-radius:999px;background:rgba(60,60,60,.62);-webkit-backdrop-filter:blur(8px) saturate(1.8);backdrop-filter:blur(8px) saturate(1.8);border:0;
+  box-shadow:inset 0 0 8px rgba(255,255,255,.05),0 8px 24px rgba(0,0,0,.3)}
+/* кантик: ярче на ровных верхе и низе, к скруглённым краям угасает; по бокам почти нет */
+.matte::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;filter:blur(.4px);
+  background:linear-gradient(90deg,rgba(255,255,255,.03) 0,rgba(255,255,255,.12) 16%,rgba(255,255,255,.2) 36%,rgba(255,255,255,.22) 50%,rgba(255,255,255,.2) 64%,rgba(255,255,255,.12) 84%,rgba(255,255,255,.03) 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.glass{border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.25);box-shadow:inset 0 0 16px -4px rgba(255,255,255,.45),0 10px 26px rgba(0,0,0,.4)}
+.solid{background:rgba(255,255,255,.16);border-radius:999px;opacity:clamp(0,calc(1 - var(--p)*4),1);will-change:transform,opacity;backface-visibility:hidden}
+.thumb{border:1px solid rgba(255,255,255,.1);box-shadow:0 calc(6px + var(--p)*10px) calc(18px + var(--p)*20px) rgba(0,0,0,calc(.3 + var(--p)*.25));opacity:clamp(0,calc(var(--p)*4),1);overflow:hidden;will-change:transform,opacity;backface-visibility:hidden}
+.lens{position:absolute;inset:0;border-radius:inherit;overflow:hidden;background:#2b2b2b;box-shadow:inset 0 0 calc(22*var(--u)) calc(3*var(--u)) rgba(0,0,0,.6)}
+.lens .tabs{inset:auto;left:calc(-22.5*var(--u) - var(--x)*273*var(--u) - var(--tx)*var(--u) - 1px);top:calc(-12*var(--u) - 1px);width:calc(843*var(--u));height:calc(190*var(--u))}
+.lens .gap,.lens .tab.on .gap{stroke:#2b2b2b}
+.bar{position:relative;width:calc(843*var(--u));height:calc(190*var(--u));touch-action:none;cursor:grab}
+.bar.down{cursor:grabbing}
+.base{position:absolute;inset:0}
+.fil{position:absolute;left:calc(-60*var(--u));top:calc(-40*var(--u));width:calc(963*var(--u));height:calc(270*var(--u));pointer-events:none;background:rgba(60,60,60,.62);-webkit-backdrop-filter:blur(8px) saturate(1.8);backdrop-filter:blur(8px) saturate(1.8);clip-path:path('M0 0 Z')}
+.thumb,.solid{position:absolute;top:calc(12*var(--u));left:calc(22.5*var(--u) + var(--x)*273*var(--u));width:calc(252*var(--u));height:calc(165*var(--u));translate:calc(var(--tx)*var(--u)) 0;scale:var(--sx) var(--sy);pointer-events:none}
+.tabs{position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,calc(273*var(--u)));padding:0 calc(12*var(--u));pointer-events:none}
+.tab{all:unset;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(10*var(--u));font-size:calc(30*var(--u));font-weight:600;line-height:1.2;color:#fff;transition:color .25s;pointer-events:auto}
+.bar>.tabs>.tab.on>*{opacity:clamp(0,calc(1 - var(--p)*4),1)}
+.tab:focus-visible{outline:2px solid var(--blue);outline-offset:-4px;border-radius:999px}
+.tab.on{color:var(--blue)}
+.gap{stroke:#252525;transition:stroke .25s}
+.tab.on .gap{stroke:#474747}
+.ico{height:calc(70*var(--u));display:grid;place-items:center}
+.ico svg{height:100%;width:auto;display:block}
+.av{width:calc(62*var(--u));height:calc(62*var(--u));border-radius:50%;background:#7d8a97 center/cover no-repeat;display:grid;place-items:center;overflow:hidden;transition:box-shadow .25s}
+.av svg{width:100%;height:100%;display:block}
+.av.has svg{display:none}
+.tab.on .av{box-shadow:0 0 0 calc(3*var(--u)) var(--blue)}
+.dock{transform:translateY(calc(var(--kb,0px)*-1))}
+.bg{position:fixed;inset:0;overflow:hidden;background:#000;z-index:0}
+.bg i{position:absolute;border-radius:50%;filter:blur(30px);opacity:.9}
+.bg i:nth-child(1){width:60vw;height:60vw;left:-15vw;top:8vh;background:#3a8bf7}
+.bg i:nth-child(2){width:55vw;height:55vw;right:-18vw;top:30vh;background:#ff5a3c}
+.bg i:nth-child(3){width:50vw;height:50vw;left:20vw;bottom:-12vh;background:#b44cf0}
+.bg p{position:absolute;left:0;right:0;text-align:center;font:700 34px/1 -apple-system,Inter,system-ui,sans-serif;color:rgba(255,255,255,.9)}
+.bg p:nth-of-type(1){top:18vh}.bg p:nth-of-type(2){top:42vh}.bg p:nth-of-type(3){top:66vh}
+.dock,.view{z-index:2}
+</style></head><body>
+<!--
+  КОМПОНЕНТ: TAB BAR С ЖИДКОЙ КАПЛЕЙ
+  Что внутри: стеклянная панель (.base) + капля (.thumb/.lens) + слияние края бара с каплей (.fil).
+  Капля тянется пальцем, примагничивается, деформируется (физика — в функции loop внизу).
+  Размеры задаются через --u (1u ≈ .46px): бар 843×190u, капля 252×165u, вкладка 273u.
+  Чтобы подключить экраны: window.onTabChange = i => { ... } (i = 0,1,2).
+-->
+<div class="bg" aria-hidden="true"><i></i><i></i><i></i><p>Liquid Glass</p><p>тяни и крути</p><p>Telegram mini app</p></div>
+<div class="dock">
+<div class="bar" id="bar" style="--x:1;--tx:0;--sx:1;--sy:1;--p:0">
+    <div class="matte base" id="base"></div>
+    <div class="fil" id="fil"></div>
+    <div class="solid"></div>
+    <div class="tabs" id="tabs">
+      <button class="tab" aria-label="Контакты">
+        <span class="ico"><svg viewBox="10 10 80 80"><path fill="currentColor" d="M50,31.06 C44.02,31.06 39.18,35.90 39.18,41.88 C39.18,47.86 44.02,52.70 50,52.70 C55.97,52.70 60.81,47.86 60.81,41.88 C60.81,35.90 55.97,31.06 50,31.06 C50,31.06 50,31.06 50,31.06z M50,60.82 C41.86,60.82 35.55,62.73 31.06,66.56 C30.65,66.91 30.18,67.38 29.62,67.98 C28.63,69.06 28.69,70.75 29.75,71.77 C30.26,72.26 30.70,72.66 31.07,72.96 C36.39,77.36 43.09,79.76 50,79.75 C56.91,79.76 63.61,77.35 68.93,72.95 C69.30,72.65 69.73,72.25 70.24,71.77 C71.30,70.76 71.36,69.06 70.36,67.98 C70.36,67.98 69.97,67.56 69.97,67.56 C69.64,67.21 69.30,66.88 68.94,66.57 C64.45,62.73 58.14,60.81 50,60.81 C50,60.81 50,60.82 50,60.82z M50,14.83 C69.42,14.83 85.16,30.57 85.16,50 C85.16,69.42 69.42,85.16 50,85.16 C30.57,85.16 14.83,69.42 14.83,50 C14.83,30.57 30.57,14.83 50,14.83 C50,14.83 50,14.83 50,14.83z"/></svg></span>
+        <span>Контакты</span>
+      </button>
+      <button class="tab on" aria-label="Чаты">
+        <span class="ico"><svg viewBox="10 10 80 80"><path fill="currentColor" d="M40.64,17.92 C56.88,17.92 70.04,29.89 70.04,44.65 C70.04,59.41 56.88,71.38 40.64,71.38 C38.15,71.38 35.73,71.09 33.43,70.57 C32.46,70.34 31.21,72.85 26.72,75.36 C23.59,77.12 19.24,76.97 18.51,76.66 C17.32,76.16 19.69,74.82 21.60,71.90 C23.51,68.98 22.72,65.49 21.87,64.87 C15.17,59.97 11.24,53.07 11.24,44.65 C11.24,29.89 24.40,17.92 40.64,17.92 C40.64,17.92 40.64,17.92 40.64,17.92z M68.80,27.35 C80.40,30.93 88.75,40.91 88.75,52.67 C88.75,61.09 84.82,67.99 78.12,72.89 C77.27,73.51 76.48,76.99 78.39,79.92 C80.30,82.84 82.67,84.18 81.48,84.68 C80.75,84.99 76.40,85.14 73.27,83.38 C68.78,80.87 67.53,78.36 66.56,78.58 C64.20,79.12 61.78,79.40 59.35,79.39 C53.85,79.39 48.70,78.02 44.30,75.63 C61.20,73.96 74.48,60.81 74.48,44.65 C74.48,38.23 72.38,32.29 68.80,27.35 C68.80,27.35 68.80,27.35 68.80,27.35z"/></svg></span>
+        <span>Чаты</span>
+      </button>
+      <button class="tab" aria-label="Настройки">
+        <span class="ico"><span class="av"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="4.2" fill="rgba(255,255,255,.85)"/><path d="M3.5 22c.8-4.6 4.2-7 8.5-7s7.7 2.4 8.5 7z" fill="rgba(255,255,255,.85)"/></svg></span></span>
+        <span>Настройки</span>
+      </button>
+    </div>
+    <div class="glass thumb" id="thumb"><div class="lens" id="lens"></div></div>
+  </div>
+</div>
+<svg width="0" height="0" style="position:absolute" color-interpolation-filters="sRGB"><defs id="defs"></defs></svg>
+<script>
+const isChromium = /Chrome\//.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
+const $ = id => document.getElementById(id);
+const surf = x => Math.pow(1 - Math.pow(1 - x, 4), .25);
+function profile(T, B, ior, N = 128) {
+  const eta = 1 / ior, p = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    const x = i / N, y = surf(x), dx = x < 1 ? 1e-4 : -1e-4;
+    const d = (surf(x + dx) - y) / dx, m = Math.hypot(d, 1), nx = -d / m, ny = -1 / m;
+    const k = 1 - eta * eta * (1 - ny * ny);
+    if (k < 0) continue;
+    const s = Math.sqrt(k);
+    p[i] = -(eta * ny + s) * nx * ((y * B + T) / (eta - (eta * ny + s) * ny));
+  }
+  return p;
+}
+const k0 = (x, y, w) => (y * w + x) * 4 + 3; // альфа-канал блика: в центральной строке блика нет
+function maps(w, h, r, B, p, mx) {
+  const mk = () => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); return [c, x, x.createImageData(w, h)]; };
+  const [c1, x1, i1] = mk(), [c2, x2, i2] = mk(), a = i1.data, b = i2.data;
+  const N = p.length, wB = w - 2 * r, hB = h - 2 * r, Bs = B * 2.5, sx = Math.cos(Math.PI / 3), sy = Math.sin(Math.PI / 3);
+  for (let i = 0; i < a.length; i += 4) { a[i] = a[i + 1] = 128; a[i + 3] = 255; }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const X = x < r ? x - r : x >= w - r ? x - r - wB : 0, Y = y < r ? y - r : y >= h - r ? y - r - hB : 0;
+    const d2 = X * X + Y * Y;
+    if (d2 > (r + 1) ** 2) continue;
+    const d = Math.sqrt(d2);
+    if (!d) { b[k0(x, y, w)] = 0; continue; }
+    const op = d < r ? 1 : 1 - (d - r), k = (y * w + x) * 4, cs = X / d, sn = Y / d, fs = r - d;
+    if (op <= 0) continue;
+    if (d2 >= Math.max(r - B, 0) ** 2) {
+      const disp = p[Math.min(Math.max(fs / B * N, 0) | 0, N - 1)] || 0;
+      a[k] = (128 + (-cs * disp / mx) * 127 * op + .5) | 0;
+      a[k + 1] = (128 + (-sn * disp / mx) * 127 * op + .5) | 0;
+    }
+    if (d2 >= Math.max(r - Bs, 0) ** 2) {
+      const dot = Math.abs(cs * sx + (-sn) * sy), edge = Math.sqrt(Math.max(0, 1 - (1 - fs) ** 2)), co = dot * edge, col = (255 * co) | 0;
+      b[k] = b[k + 1] = b[k + 2] = col; b[k + 3] = (col * co * op) | 0;
+    }
+  }
+  x1.putImageData(i1, 0, 0); x2.putImageData(i2, 0, 0);
+  return [c1.toDataURL(), c2.toDataURL()];
+}
+// Сильное стекло: толстое, высокий IOR, усиленное смещение и блик
+function filterFor(el, id) {
+  const w = el.offsetWidth, h = el.offsetHeight;
+  if (w < 2 || h < 2) return '';
+  const soft = !!el.dataset.soft, r = h / 2, B = Math.min(h * (soft ? .15 : .34), r - 1), p = profile(h * (soft ? .2 : .42), B, soft ? 1.5 : 1.9);
+  const mx = Math.max(...Array.from(p, Math.abs)) || 1, [disp, spec] = maps(w, h, r, B, p, mx);
+  return `<filter id="${id}" x="0%" y="0%" width="100%" height="100%">
+<feGaussianBlur in="SourceGraphic" stdDeviation="0.2" result="bl"/>
+<feImage href="${disp}" x="0" y="0" width="${w}" height="${h}" result="dm"/>
+<feDisplacementMap in="bl" in2="dm" scale="${mx * (soft ? .1 : id === 'lg-thumb' ? .45 : .4)}" xChannelSelector="R" yChannelSelector="G" result="dp"/>
+<feColorMatrix in="dp" type="saturate" values="5" result="ds"/>
+<feImage href="${spec}" x="0" y="0" width="${w}" height="${h}" result="sl"/>
+<feComposite in="ds" in2="sl" operator="in" result="sm"/>
+<feComponentTransfer in="sl" result="sf"><feFuncA type="linear" slope="${soft ? 0 : id === 'lg-thumb' ? .22 : 1}"/></feComponentTransfer>
+<feBlend in="sm" in2="dp" mode="normal" result="ws"/>
+<feBlend in="sf" in2="ws" mode="normal"/></filter>`;
+}
+const bar = $('bar'), base = $('base'), fil = $('fil'), thumb = $('thumb'), lens = $('lens');
+const bdEls = [[base, 'bd-base']], glassEls = [[lens, 'lg-thumb']];
+bdEls.forEach(([el]) => el.dataset.soft = '1');
+function rebuild() {
+  $('defs').innerHTML = glassEls.concat(isChromium ? bdEls : []).map(([el, id]) => filterFor(el, id)).join('');
+  glassEls.forEach(([el, id]) => el.style.filter = `url(#${id})`);
+  // backdrop-filter: url(#svg) умеет только Chromium; в Safari/WebView iOS остаётся обычное размытие из CSS
+  if (isChromium) bdEls.forEach(([el, id]) => { const v = `url(#${id}) blur(4px) saturate(1.8)`; el.style.backdropFilter = v; el.style.webkitBackdropFilter = v; });
+}
+let rt;
+const ro = new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(rebuild, 80); });
+glassEls.concat(bdEls).forEach(([el]) => ro.observe(el));
+rebuild();
+
+// Переключатель: «каплю» можно таскать туда-сюда, пока палец зажат; при отпускании она примагничивается
+const tabs = [...$('tabs').children], tabsEl = $('tabs');
+const clone = tabsEl.cloneNode(true); clone.removeAttribute('id'); clone.setAttribute('aria-hidden', 'true');
+clone.querySelectorAll('button').forEach(b => b.tabIndex = -1); lens.appendChild(clone);
+const cloneTabs = [...clone.children];
+let dirv = 1, cur = 1, vel = 0, target = 1, press = 0, pvel = 0, down = false, grab = 0, active = 1;
+let pRaw = 1, pT = 0, pV = 0, mv = 0, mvv = 0, zz = 0, zzv = 0, wasMoving = false, lag = 1, lagv = 0; // скорость пальца (в табах/сек)
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+// Подсветка таба следует за каплей, а сама вкладка (экран) открывается только когда палец отпущен
+let hi = 1;
+function highlight(i) { if (i === hi) return; hi = i; [tabs, cloneTabs].forEach(arr => arr.forEach((el, n) => el.classList.toggle('on', n === i))); }
+function setActive(i) { highlight(i); if (i === active) return; active = i; if (window.onTabChange) window.onTabChange(i); }
+function ptr(e) {
+  const rc = tabsEl.getBoundingClientRect(), w = tabs[0].offsetWidth, pad = (rc.width - w * 3) / 2;
+  return (e.clientX - rc.left - pad) / w;
+}
+function place(p, now) {
+  const raw = p - .5 - grab;
+  target = raw < 0 ? raw * .3 : raw > 2 ? 2 + (raw - 2) * .3 : raw; // сопротивление у краёв
+  if (pT) { const dt = Math.max(.008, (now - pT) / 1000); pV += ((raw - pRaw) / dt - pV) * .35; }
+  pRaw = raw; pT = now;
+  highlight(clamp(Math.round(raw), 0, 2));   // экран не переключаем, пока капля в руке
+}
+bar.addEventListener('pointerdown', e => {
+  bar.setPointerCapture(e.pointerId); down = true; bar.classList.add('down');
+  pV = 0; pT = 0;
+  const p = ptr(e); grab = Math.abs(p - (cur + .5)) < .5 ? p - (cur + .5) : 0; place(p, e.timeStamp);
+});
+bar.addEventListener('pointermove', e => { if (down) place(ptr(e), e.timeStamp); });
+['pointerup', 'pointercancel'].forEach(n => bar.addEventListener(n, e => {
+  if (!down) return; down = false; bar.classList.remove('down');
+  if (e.timeStamp - pT > 90) pV = 0;           // палец стоял — инерции нет
+  pV = clamp(pV, -9, 9);
+  const dest = clamp(Math.round(pRaw + pV * .1), 0, 2); // бросок «перебрасывает» каплю дальше
+  target = dest; setActive(dest);
+  vel += pV * .22;                              // импульс при отпускании
+}));
+tabs.forEach((el, n) => el.addEventListener('click', e => { if (e.detail === 0) { target = n; setActive(n); } }));
+
+let last = performance.now();
+(function loop(now) {
+  const dt = Math.min(.05, (now - last) / 1000 || .016); last = now;
+  // пружины: на пальце — мягкое следование, после отпускания — недодемпфированная (с перелётом и покачиванием)
+  const k = down ? 210 : 230, c = down ? 22 : 1.6 * Math.sqrt(230), pk = 200, pc = 11;   // после отпускания/тапа — почти критическое демпфирование: едва заметный перелёт (~1.5%)
+  const n = 4, h = dt / n;
+  for (let i = 0; i < n; i++) {
+    vel += (-k * (cur - target) - c * vel) * h; cur += vel * h;
+    pvel += (-pk * (press - (down ? 1 : 0)) - pc * pvel) * h; press += pvel * h;
+    lagv += (-180 * (lag - cur) - 2 * Math.sqrt(180) * lagv) * h; lag += lagv * h; // «отстающее» тело капли
+  }
+  // без зажатия: пока капля едет, она раздувается ровно до краёв бара (297×190 при исходных 273×165)
+  const moving = Math.abs(cur - target) > .1 || Math.abs(vel) > .9;
+  { // критически задемпфированная пружина: мягкий старт и мягкая остановка, без рывка и перелёта
+    // капля «приехала»: толчок наружу — она на миг раздувается чуть шире краёв бара,
+    // затем с покачиванием (недодемпфированная пружина) возвращается и даже чуть недотягивает до нормы
+    if (wasMoving && !moving && !down) zzv -= 2.4;                  // приземление: капля сплющивается (ниже и шире) и мягко возвращается
+    if (!wasMoving && moving) zzv += 1.4;                           // старт: капля «набухает» и плавно оседает
+    wasMoving = moving;
+    const mk = moving ? 380 : 900, mc = 2 * Math.sqrt(mk);
+    for (let i = 0; i < 4; i++) { mvv += (-mk * (mv - (moving ? 1 : 0)) - mc * mvv) * (dt / 4); mv += mvv * (dt / 4); }
+    mv = clamp(mv, -.2, 1.6);
+  }
+  // вертикальная пружина (недодемпфированная): на ходу и под пальцем капля раздувается по высоте, на старте/финише пульсирует
+  { const zt = .02 * clamp(Math.abs(vel) / 6, 0, 1) + .04 * press;
+    for (let i = 0; i < 4; i++) { zzv += (-170 * (zz - zt) - 1.2 * Math.sqrt(170) * zzv) * (dt / 4); zz += zzv * (dt / 4); }
+    zz = clamp(zz, -.3, .3); }
+  const g = (mv < 0 && press < .02) ? mv : Math.max(mv, press);
+  const st = clamp(Math.abs(vel) * .055, 0, .26) * (down ? 1 : .6);  // растяжение по скорости
+  const s = 1 + .05 * g + .06 * press, sy = 1 + .24 * g + .16 * press; // до краёв бара; при зажатии — ещё больше
+  bar.style.setProperty('--x', cur.toFixed(4));
+  // Границы бара (843×190): капля может чуть выйти за них, дальше — мягкий «подушечный» упор:
+  // деформация начинается заранее и нарастает плавно, об стенку она сплющивается и разбухает по высоте
+  const sm = (v, m, K) => v <= m - K ? v : m - K * Math.exp(-(v - (m - K)) / K);
+  const cx = 12 + cur * 273 + 136.5;
+  const horiz = w => [-sm(-(cx - w / 2), 48, 30), sm(cx + w / 2, 891, 30)];
+  if (Math.abs(vel) > .6) dirv = Math.sign(vel);
+  const jel = clamp((cur - lag) * dirv, -.55, .55);   // относительно направления движения: симметрично вправо и влево                    // желе: тянется на ходу, при остановке качнётся и успокоится — даже без удара о стенку
+  const stv = clamp(Math.abs(vel) * .04, 0, .24) * (down ? 1 : .8);
+  let sxv = s * (1 + st) * (1 + .48 * jel) * (1 - .45 * zz), syv = sy * (1 + zz);   // по высоте — без «желе» и приплюснутости: на переключении почти до краёв бара, чуть-чуть выступая
+  sxv = Math.min(sxv, 1.38);
+  let [Lc, Rc] = horiz(252 * sxv);
+  const cmp = Math.max(0, 1 - (Rc - Lc) / (252 * sxv));      // насколько сжало о стенку
+  vel *= 1 - Math.min(.3, cmp * 4 * dt);                      // стенка гасит скорость (мягкая подушка)
+  syv *= 1 + .45 * cmp;                                       // сжало по ширине — раздалось по высоте
+  const h0 = 165 * syv, h1 = sm(h0, 214, 14);                 // сверху/снизу: выступ до 206, остальное в ширину
+  sxv *= Math.sqrt(h0 / h1); syv = h1 / 165;
+  [Lc, Rc] = horiz(252 * sxv);
+  bar.style.setProperty('--tx', ((Lc + Rc) / 2 - cx).toFixed(3));
+  bar.style.setProperty('--sx', ((Rc - Lc) / 252).toFixed(4));
+  bar.style.setProperty('--sy', syv.toFixed(4));
+  bar.style.setProperty('--p', clamp(g, 0, 1).toFixed(3));
+  // как в iOS 27: край бара «тянется» к выступившей капле и сливается с ней плавным скруглением (как жидкость)
+  { const U = bar.offsetWidth / 843, cxm = (Lc + Rc) / 2, r = 82.5 * syv, cy = 95, ex = r - cy;   // ex — насколько капля торчит над/под баром
+    let d = '';
+    if (ex > 1.5) {
+      const OX = 60, OY = 40, f = (x, y) => ((x + OX) * U).toFixed(1) + ' ' + ((y + OY) * U).toFixed(1);
+      const FLAT0 = 95, FLAT1 = 748;                                       // прямой участок бара (без скруглённых торцов)
+      const phi0 = Math.asin(cy / r), hc = Math.sqrt(r * r - cy * cy);
+      const build = (k, side, vert) => {                                   // side: +1 справа, -1 слева; vert: +1 верх, -1 низ
+        const phi1 = Math.asin(Math.min(1, (cy + k * ex) / r)), cc = side > 0 ? Rc - r : Lc + r;
+        const px = cc + side * r * Math.cos(phi1), py = -(r * Math.sin(phi1) - cy);        // точка на капле (py<0 — над баром)
+        const tt = -py / Math.cos(phi1), Cx = px + side * tt * Math.sin(phi1), P0x = Cx + side * Math.abs(Cx - px) * 2;
+        const xi = cc + side * hc;
+        if (side > 0 ? P0x > FLAT1 : P0x < FLAT0) return null;
+        const Y = y => vert > 0 ? y : 190 - y;
+        let pth = `M${f(xi, Y(0))} L${f(P0x, Y(0))} Q${f(Cx, Y(0))} ${f(px, Y(py))}`;
+        for (let a = 1; a <= 8; a++) { const ph = phi1 + (phi0 - phi1) * a / 8; pth += ` L${f(cc + side * r * Math.cos(ph), Y(-(r * Math.sin(ph) - cy)))}`; }
+        return pth + ' Z';
+      };
+      for (const side of [1, -1]) for (const vert of [1, -1]) for (const k of [.95, .65, .4]) { const q = build(k, side, vert); if (q) { d += q; break; } }
+    }
+    fil.style.clipPath = fil.style.webkitClipPath = d ? `path('${d}')` : 'path("M0 0 Z")'; }
+  requestAnimationFrame(loop);
+})(performance.now());
+// Пример: реакция на смену вкладки
+window.onTabChange = i => console.log('tab →', i);
+</script></body></html>

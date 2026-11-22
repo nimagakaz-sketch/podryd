@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Liquid Glass — Buttons (компонент)</title>
+<style>
+:root{--u:min(.46px,calc((100vw - 24px)/1058));--blue:#3a8bf7;--top:calc(max(env(safe-area-inset-top,0px),var(--tg-safe-area-inset-top,0px)) + var(--tg-content-safe-area-inset-top,0px));--pl:max(16px,env(safe-area-inset-left,0px));--pr:max(16px,env(safe-area-inset-right,0px));--hh:43px;--gap-top:6px;--bot:max(env(safe-area-inset-bottom,0px),var(--tg-safe-area-inset-bottom,0px));color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#000;overflow:hidden;overscroll-behavior:none;color:#fff;font-family:-apple-system,"SF Pro Text",Inter,system-ui,"Segoe UI",sans-serif;user-select:none;-webkit-user-select:none}
+.matte{border-radius:999px;background:rgba(60,60,60,.62);-webkit-backdrop-filter:blur(8px) saturate(1.8);backdrop-filter:blur(8px) saturate(1.8);border:0;
+  box-shadow:inset 0 0 8px rgba(255,255,255,.05),0 8px 24px rgba(0,0,0,.3)}
+/* кантик: ярче на ровных верхе и низе, к скруглённым краям угасает; по бокам почти нет */
+.matte::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;filter:blur(.4px);
+  background:linear-gradient(90deg,rgba(255,255,255,.03) 0,rgba(255,255,255,.12) 16%,rgba(255,255,255,.2) 36%,rgba(255,255,255,.22) 50%,rgba(255,255,255,.2) 64%,rgba(255,255,255,.12) 84%,rgba(255,255,255,.03) 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.hbtn{background:rgba(60,60,60,.62)}
+.glass{border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.25);box-shadow:inset 0 0 16px -4px rgba(255,255,255,.45),0 10px 26px rgba(0,0,0,.4)}
+.lens{position:absolute;inset:0;border-radius:inherit;overflow:hidden;background:#2b2b2b;box-shadow:inset 0 0 calc(22*var(--u)) calc(3*var(--u)) rgba(0,0,0,.6)}
+.circle{position:relative;width:calc(191*var(--u));height:calc(191*var(--u));display:grid;place-items:center;cursor:grab;color:#fff;touch-action:none;translate:var(--ox,0px) var(--oy,0px);scale:var(--cx,1) var(--cy,1)}
+.circle>.ics{opacity:calc(1 - var(--sp,0))}
+.ics{display:grid;place-items:center}
+.ics svg{grid-area:1/1}
+.sthumb{position:absolute;inset:0;overflow:hidden;opacity:var(--sp,0);pointer-events:none}
+.sclone{position:absolute;inset:0;display:grid;place-items:center;color:#fff}
+.circle svg{height:calc(70*var(--u));width:auto}
+.gb{position:relative;translate:var(--ox,0px) var(--oy,0px);scale:var(--cx,1) var(--cy,1);touch-action:none;cursor:grab}
+.gb>.gc{opacity:calc(1 - var(--sp,0))}
+.pill{height:43px;padding:0 16px;display:grid;place-items:center;font-size:17px;font-weight:600;white-space:nowrap}
+.pill .gc,.pill .sclone{line-height:1;padding-bottom:1px}
+.sq{width:43px;height:43px;display:grid;place-items:center}
+.sq svg{width:20px;height:20px;display:block}
+.glass.soft{border:1px solid rgba(255,255,255,.02);box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.glass.soft::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;box-shadow:inset 0 7px 8px -6px rgba(255,255,255,.007),inset 0 -7px 8px -6px rgba(255,255,255,.005)}
+.soft .lens{background:transparent}
+#slens{background:rgba(90,90,90,.3)}
+.ics svg{transition:opacity .3s,transform .55s cubic-bezier(.2,1.3,.35,1)}
+.circle .ics svg.ic-g{opacity:0;transform:rotate(-140deg) scale(.35);height:calc(56*var(--u))}
+.circle.lang .ics svg.ic-s{opacity:0;transform:rotate(140deg) scale(.35)}
+.circle.lang .ics svg.ic-g{opacity:1;transform:none}
+.circle.spin .ics svg.ic-g{animation:gspin .85s cubic-bezier(.25,.8,.25,1)}
+.bg{position:fixed;inset:0;overflow:hidden;background:#000;z-index:0}
+.bg i{position:absolute;border-radius:50%;filter:blur(30px);opacity:.9}
+.bg i:nth-child(1){width:60vw;height:60vw;left:-15vw;top:8vh;background:#3a8bf7}
+.bg i:nth-child(2){width:55vw;height:55vw;right:-18vw;top:30vh;background:#ff5a3c}
+.bg i:nth-child(3){width:50vw;height:50vw;left:20vw;bottom:-12vh;background:#b44cf0}
+.bg p{position:absolute;left:0;right:0;text-align:center;font:700 34px/1 -apple-system,Inter,system-ui,sans-serif;color:rgba(255,255,255,.9)}
+.bg p:nth-of-type(1){top:18vh}.bg p:nth-of-type(2){top:42vh}.bg p:nth-of-type(3){top:66vh}
+.dock,.view{z-index:2}
+.row3{position:fixed;left:0;right:0;top:50%;transform:translateY(-50%);display:flex;justify-content:center;align-items:center;gap:20px;z-index:2}
+</style></head><body>
+<!--
+  КОМПОНЕНТ: СТЕКЛЯННЫЕ КНОПКИ (пилюля, квадрат, круг)
+  Кнопку можно тянуть: «тугая» жидкая капля, растёт при зажатии, пружинит назад (функция glassBtn).
+  Структура кнопки: .matte (матовая основа) + .gc (содержимое) + .sthumb > .lens (стеклянная линза,
+  появляется при нажатии). Содержимое .gc клонируется в линзу скриптом.
+  data-soft="1" на линзе = «мягкое» стекло (для маленьких кнопок), без него — толстое, как у капли.
+-->
+<div class="bg" aria-hidden="true"><i></i><i></i><i></i><p>Liquid Glass</p><p>тяни и крути</p><p>Telegram mini app</p></div>
+<div class="row3">
+  <div class="matte hbtn gb pill" id="sortBtn"><span class="gc">Сортировка</span><div class="glass soft sthumb"><div class="lens" id="lensSort" data-soft="1"></div></div></div>
+  <div class="matte hbtn gb sq" id="plusBtn"><svg class="gc" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 2v16M2 10h16"/></svg><div class="glass soft sthumb"><div class="lens" id="lensPlus" data-soft="1"></div></div></div>
+  <div class="matte circle" id="search" role="button" tabindex="0" aria-label="Поиск"><span class="ics"><svg class="ic-s" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><circle cx="11.5" cy="11.5" r="8"/><path d="M17.5 17.5L25 25"/></svg></span><div class="glass sthumb"><div class="lens" id="slens"></div></div></div>
+</div>
+<svg width="0" height="0" style="position:absolute" color-interpolation-filters="sRGB"><defs id="defs"></defs></svg>
+<script>
+const isChromium = /Chrome\//.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
+const $ = id => document.getElementById(id);
+const surf = x => Math.pow(1 - Math.pow(1 - x, 4), .25);
+function profile(T, B, ior, N = 128) {
+  const eta = 1 / ior, p = new Float64Array(N);
+  for (let i = 0; i < N; i++) {
+    const x = i / N, y = surf(x), dx = x < 1 ? 1e-4 : -1e-4;
+    const d = (surf(x + dx) - y) / dx, m = Math.hypot(d, 1), nx = -d / m, ny = -1 / m;
+    const k = 1 - eta * eta * (1 - ny * ny);
+    if (k < 0) continue;
+    const s = Math.sqrt(k);
+    p[i] = -(eta * ny + s) * nx * ((y * B + T) / (eta - (eta * ny + s) * ny));
+  }
+  return p;
+}
+const k0 = (x, y, w) => (y * w + x) * 4 + 3; // альфа-канал блика: в центральной строке блика нет
+function maps(w, h, r, B, p, mx) {
+  const mk = () => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); return [c, x, x.createImageData(w, h)]; };
+  const [c1, x1, i1] = mk(), [c2, x2, i2] = mk(), a = i1.data, b = i2.data;
+  const N = p.length, wB = w - 2 * r, hB = h - 2 * r, Bs = B * 2.5, sx = Math.cos(Math.PI / 3), sy = Math.sin(Math.PI / 3);
+  for (let i = 0; i < a.length; i += 4) { a[i] = a[i + 1] = 128; a[i + 3] = 255; }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const X = x < r ? x - r : x >= w - r ? x - r - wB : 0, Y = y < r ? y - r : y >= h - r ? y - r - hB : 0;
+    const d2 = X * X + Y * Y;
+    if (d2 > (r + 1) ** 2) continue;
+    const d = Math.sqrt(d2);
+    if (!d) { b[k0(x, y, w)] = 0; continue; }
+    const op = d < r ? 1 : 1 - (d - r), k = (y * w + x) * 4, cs = X / d, sn = Y / d, fs = r - d;
+    if (op <= 0) continue;
+    if (d2 >= Math.max(r - B, 0) ** 2) {
+      const disp = p[Math.min(Math.max(fs / B * N, 0) | 0, N - 1)] || 0;
+      a[k] = (128 + (-cs * disp / mx) * 127 * op + .5) | 0;
+      a[k + 1] = (128 + (-sn * disp / mx) * 127 * op + .5) | 0;
+    }
+    if (d2 >= Math.max(r - Bs, 0) ** 2) {
+      const dot = Math.abs(cs * sx + (-sn) * sy), edge = Math.sqrt(Math.max(0, 1 - (1 - fs) ** 2)), co = dot * edge, col = (255 * co) | 0;
+      b[k] = b[k + 1] = b[k + 2] = col; b[k + 3] = (col * co * op) | 0;
+    }
+  }
+  x1.putImageData(i1, 0, 0); x2.putImageData(i2, 0, 0);
+  return [c1.toDataURL(), c2.toDataURL()];
+}
+// Сильное стекло: толстое, высокий IOR, усиленное смещение и блик
+function filterFor(el, id) {
+  const w = el.offsetWidth, h = el.offsetHeight;
+  if (w < 2 || h < 2) return '';
+  const soft = !!el.dataset.soft, r = h / 2, B = Math.min(h * (soft ? .15 : .34), r - 1), p = profile(h * (soft ? .2 : .42), B, soft ? 1.5 : 1.9);
+  const mx = Math.max(...Array.from(p, Math.abs)) || 1, [disp, spec] = maps(w, h, r, B, p, mx);
+  return `<filter id="${id}" x="0%" y="0%" width="100%" height="100%">
+<feGaussianBlur in="SourceGraphic" stdDeviation="0.2" result="bl"/>
+<feImage href="${disp}" x="0" y="0" width="${w}" height="${h}" result="dm"/>
+<feDisplacementMap in="bl" in2="dm" scale="${mx * (soft ? .1 : id === 'lg-thumb' ? .45 : .4)}" xChannelSelector="R" yChannelSelector="G" result="dp"/>
+<feColorMatrix in="dp" type="saturate" values="5" result="ds"/>
+<feImage href="${spec}" x="0" y="0" width="${w}" height="${h}" result="sl"/>
+<feComposite in="ds" in2="sl" operator="in" result="sm"/>
+<feComponentTransfer in="sl" result="sf"><feFuncA type="linear" slope="${soft ? 0 : id === 'lg-thumb' ? .22 : 1}"/></feComponentTransfer>
+<feBlend in="sm" in2="dp" mode="normal" result="ws"/>
+<feBlend in="sf" in2="ws" mode="normal"/></filter>`;
+}
+const search = $('search');
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+[['lensSort', 'sortBtn'], ['lensPlus', 'plusBtn']].forEach(([l, b]) => $(l).innerHTML = '<div class="sclone">' + $(b).querySelector('.gc').outerHTML + '</div>');
+$('slens').innerHTML = '<div class="sclone">' + search.querySelector('.ics').outerHTML + '</div>';
+const bdEls = [[$('sortBtn'), 'bd-sort'], [$('plusBtn'), 'bd-plus'], [search, 'bd-search']], glassEls = [[$('lensSort'), 'lg-sort'], [$('lensPlus'), 'lg-plus'], [$('slens'), 'lg-search']];
+bdEls.forEach(([el]) => el.dataset.soft = '1');
+function rebuild() {
+  $('defs').innerHTML = glassEls.concat(isChromium ? bdEls : []).map(([el, id]) => filterFor(el, id)).join('');
+  glassEls.forEach(([el, id]) => el.style.filter = `url(#${id})`);
+  // backdrop-filter: url(#svg) умеет только Chromium; в Safari/WebView iOS остаётся обычное размытие из CSS
+  if (isChromium) bdEls.forEach(([el, id]) => { const v = `url(#${id}) blur(4px) saturate(1.8)`; el.style.backdropFilter = v; el.style.webkitBackdropFilter = v; });
+}
+let rt;
+const ro = new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(rebuild, 80); });
+glassEls.concat(bdEls).forEach(([el]) => ro.observe(el));
+rebuild();
+
+// Стеклянные кнопки: «тугая» жидкая капля — тянется с сопротивлением, растёт при зажатии, пружинит назад
+const sU = () => search.offsetWidth / 191;
+function glassBtn(el, getL, always, mv = 1) { // mv — какая доля смещения реально двигает кнопку (деформация не зависит)
+  let x0 = 0, y0 = 0, d = false, ox = 0, oy = 0, vx = 0, vy = 0, tx = 0, ty = 0, pr = 0, pv = 0;
+  const soft = (v, L) => L * Math.tanh(v / (L * 3.4)); // чем дальше тянешь, тем туже
+  el.addEventListener('pointerdown', e => { el.setPointerCapture(e.pointerId); d = true; x0 = e.clientX; y0 = e.clientY; tx = ty = 0; });
+  el.addEventListener('pointermove', e => { if (!d) return; const L = getL(); tx = soft(e.clientX - x0, L); ty = soft(e.clientY - y0, L); });
+  ['pointerup', 'pointercancel'].forEach(n => el.addEventListener(n, () => { d = false; tx = ty = 0; }));
+  return dt => {
+    const k = d ? 260 : 150, c = d ? 24 : 9, n = 4, h = dt / n;
+    for (let i = 0; i < n; i++) {
+      vx += (-k * (ox - tx) - c * vx) * h; ox += vx * h;
+      vy += (-k * (oy - ty) - c * vy) * h; oy += vy * h;
+      pv += (-230 * (pr - (d ? 1 : 0)) - 16 * pv) * h; pr += pv * h;
+    }
+    const L = getL(), ax = Math.min(1.3, Math.abs(ox) / L), ay = Math.min(1.3, Math.abs(oy) / L), sc = 1 + .14 * pr;
+    el.style.setProperty('--ox', (ox * mv).toFixed(2) + 'px');
+    el.style.setProperty('--oy', (oy * mv).toFixed(2) + 'px');
+    el.style.setProperty('--cx', (sc * (1 + .14 * ax - .07 * ay)).toFixed(4));
+    el.style.setProperty('--cy', (sc * (1 + .14 * ay - .07 * ax)).toFixed(4));
+    el.style.setProperty('--sp', always ? 1 : clamp(pr, 0, 1).toFixed(3)); // always — стекло включено постоянно
+  };
+}
+
+const btnSteps = [glassBtn(search, () => 70 * sU()), glassBtn($('sortBtn'), () => 24, false, .12), glassBtn($('plusBtn'), () => 24, false, .12)];
+let last = performance.now();
+(function loop(now) {
+  const dt = Math.min(.05, (now - last) / 1000 || .016); last = now;
+  btnSteps.forEach(f => f(dt));
+  requestAnimationFrame(loop);
+})(performance.now());
+</script></body></html>
